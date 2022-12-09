@@ -211,8 +211,15 @@ struct sockaddr_storage {
 #ifdef __amigaos4__
 
 #include <errno.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <netdb.h>
 
 #define getlogin_r(a,b) ENXIO
+#define srandom srand
+#define random rand
+#define getaddrinfo smb2_getaddrinfo
+#define freeaddrinfo smb2_freeaddrinfo
 
 #define POLLIN      0x0001    /* There is data to read */
 #define POLLPRI     0x0002    /* There is urgent data to read */
@@ -227,6 +234,11 @@ struct pollfd {
 };
 
 int poll(struct pollfd *fds, unsigned int nfds, int timo);
+
+int smb2_getaddrinfo(const char *node, const char*service,
+                const struct addrinfo *hints,
+                struct addrinfo **res);
+void smb2_freeaddrinfo(struct addrinfo *res);
 
 #if !defined(HAVE_SOCKADDR_STORAGE)
 /*
