@@ -1,0 +1,6 @@
+# Ignore object and archive files
+*.[oa]
+# Ignore smb2fs generated files
+obj
+smb2-handler
+smb2-handler.debug
