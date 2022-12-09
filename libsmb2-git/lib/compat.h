@@ -208,4 +208,49 @@ struct sockaddr_storage {
 
 #endif
 
+#ifdef __amigaos4__
+
+#include <errno.h>
+
+#define getlogin_r(a,b) ENXIO
+
+#define POLLIN      0x0001    /* There is data to read */
+#define POLLPRI     0x0002    /* There is urgent data to read */
+#define POLLOUT     0x0004    /* Writing now will not block */
+#define POLLERR     0x0008    /* Error condition */
+#define POLLHUP     0x0010    /* Hung up */
+
+struct pollfd {
+        int fd;
+        short events;
+        short revents;
+};
+
+int poll(struct pollfd *fds, unsigned int nfds, int timo);
+
+#if !defined(HAVE_SOCKADDR_STORAGE)
+/*
+ * RFC 2553: protocol-independent placeholder for socket addresses
+ */
+#define _SS_MAXSIZE	128
+#define _SS_ALIGNSIZE	(sizeof(double))
+#define _SS_PAD1SIZE	(_SS_ALIGNSIZE - sizeof(unsigned char) * 2)
+#define _SS_PAD2SIZE	(_SS_MAXSIZE - sizeof(unsigned char) * 2 - \
+				_SS_PAD1SIZE - _SS_ALIGNSIZE)
+
+struct sockaddr_storage {
+#ifdef HAVE_SOCKADDR_LEN
+	unsigned char ss_len;		/* address length */
+	unsigned char ss_family;	/* address family */
+#else
+	unsigned short ss_family;
+#endif
+	char	__ss_pad1[_SS_PAD1SIZE];
+	double	__ss_align;	/* force desired structure storage alignment */
+	char	__ss_pad2[_SS_PAD2SIZE];
+};
+#endif
+
+#endif
+
 #endif /* _COMPAT_H_ */

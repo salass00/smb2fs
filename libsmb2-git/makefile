@@ -21,7 +21,7 @@ SRCS = aes.c aes128ccm.c alloc.c dcerpc.c dcerpc-lsa.c dcerpc-srvsvc.c \
        smb2-data-file-info.c smb2-data-filesystem-info.c \
        smb2-data-security-descriptor.c smb2-data-reparse-point.c \
        smb2-share-enum.c smb3-seal.c smb2-signing.c socket.c sync.c \
-       timestamps.c unicode.c usha.c
+       timestamps.c unicode.c usha.c compat.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
