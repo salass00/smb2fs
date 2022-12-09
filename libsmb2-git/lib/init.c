@@ -86,6 +86,13 @@
 #endif
 #endif // __ANDROID__
 
+#ifdef __amigaos4__
+#include <errno.h>
+#define getlogin_r(a,b) ENXIO
+#define srandom srand
+#define random rand
+#endif // __amigaos4__
+
 static int
 smb2_parse_args(struct smb2_context *smb2, const char *args)
 {
