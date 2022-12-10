@@ -117,7 +117,8 @@ static void connect_cb(struct smb2_context *smb2, int status,
 int smb2_connect_share(struct smb2_context *smb2,
                        const char *server,
                        const char *share,
-                       const char *user)
+                       const char *user,
+                       const char *password)
 {
         struct sync_cb_data *cb_data;
         int rc = 0;
@@ -128,7 +129,7 @@ int smb2_connect_share(struct smb2_context *smb2,
                 return -ENOMEM;
         }
 
-	rc = smb2_connect_share_async(smb2, server, share, user,
+	rc = smb2_connect_share_async(smb2, server, share, user, password,
                                       connect_cb, cb_data);
         if (rc < 0) {
                 goto out;

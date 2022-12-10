@@ -327,6 +327,7 @@ int smb2_connect_share_async(struct smb2_context *smb2,
                              const char *server,
                              const char *share,
                              const char *user,
+                             const char *password,
                              smb2_command_cb cb, void *cb_data);
 
 /*
@@ -340,7 +341,8 @@ int smb2_connect_share_async(struct smb2_context *smb2,
 int smb2_connect_share(struct smb2_context *smb2,
                        const char *server,
                        const char *share,
-                       const char *user);
+                       const char *user,
+                       const char *password);
 
 /*
  * Async call to disconnect from a share/

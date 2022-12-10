@@ -443,7 +443,7 @@ void smb2_set_security_mode(struct smb2_context *smb2, uint16_t security_mode)
         smb2->security_mode = security_mode;
 }
 
-#if !defined(PS2_IOP_PLATFORM)
+#if !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__)
 static void smb2_set_password_from_file(struct smb2_context *smb2)
 {
         char *name = NULL;
