@@ -1,5 +1,8 @@
 # Ignore object and archive files
 *.[oa]
+# Ignore libsmb2 generated files
+smb2-ls-sync
+smb2-ls-sync.debug
 # Ignore smb2fs generated files
 obj
 smb2-handler

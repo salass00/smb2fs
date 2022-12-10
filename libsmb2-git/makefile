@@ -1,6 +1,7 @@
 CC     = ppc-amigaos-gcc
 AR     = ppc-amigaos-ar
 RANLIB = ppc-amigaos-ranlib
+STRIP  = ppc-amigaos-strip
 
 OPTIMIZE = -O2
 DEBUG    = -gstabs
@@ -9,6 +10,8 @@ INCLUDES = -I. -I./include -I./include/smb2
 DEFINES  = -DHAVE_CONFIG_H "-D_U_=__attribute__((unused))"
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(WARNINGS) $(INCLUDES) $(DEFINES)
+
+STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
 SRCS = aes.c aes128ccm.c alloc.c dcerpc.c dcerpc-lsa.c dcerpc-srvsvc.c \
        errors.c init.c hmac.c hmac-md5.c krb5-wrapper.c libsmb2.c md4c.c \
@@ -35,6 +38,10 @@ obj/%.o: lib/%.c
 libsmb2.a: $(OBJS)
 	$(AR) -crv $@ $^
 	$(RANLIB) $@
+
+examples/smb2-ls-sync: examples/smb2-ls-sync.c libsmb2.a
+	$(CC) $(CFLAGS) -o $@.debug $^
+	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
 .PHONY: clean
 clean:
