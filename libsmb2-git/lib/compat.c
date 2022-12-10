@@ -59,7 +59,7 @@ int smb2_getaddrinfo(const char *node, const char*service,
                 sin->sin_port=htons(atoi(service));
         }
 
-        *res = malloc(sizeof(struct addrinfo));
+        *res = calloc(1, sizeof(struct addrinfo));
 
         (*res)->ai_family = AF_INET;
         (*res)->ai_addrlen = sizeof(struct sockaddr_in);
