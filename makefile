@@ -41,7 +41,7 @@ $(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
 
 .PHONY: clean
 clean:
-	$(MAKE) -C $(LIBSSH2DIR) clean
+	$(MAKE) -C $(LIBSMB2DIR) clean
 	rm -rf $(TARGET) $(TARGET).debug obj
 
 .PHONY: revision
