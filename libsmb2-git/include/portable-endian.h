@@ -170,11 +170,31 @@
 #   define be64toh(x) __builtin_bswap64(x)
 #   define le64toh(x) (x)
 
-#   else
-#     error platform not supported
-#   endif
+# else
+#   error platform not supported
+# endif
 
 #elif defined(__amigaos4__)
+
+# if defined(__NEWLIB__)
+#   include <machine/endian.h>
+
+#   define htobe16(x) (x)
+#   define htole16(x) __bswap16(x)
+#   define be16toh(x) (x)
+#   define le16toh(x) __bswap16(x)
+
+#   define htobe32(x) (x)
+#   define htole32(x) __bswap32(x)
+#   define be32toh(x) (x)
+#   define le32toh(x) __bswap32(x)
+
+#   define htobe64(x) (x)
+#   define htole64(x) __bswap64(x)
+#   define be64toh(x) (x)
+#   define le64toh(x) __bswap64(x)
+
+# elif defined(__GNUC__)
 
 #   define htobe16(x) (x)
 #   define htole16(x) __builtin_bswap16(x)
@@ -190,6 +210,10 @@
 #   define htole64(x) __builtin_bswap64(x)
 #   define be64toh(x) (x)
 #   define le64toh(x) __builtin_bswap64(x)
+
+# else
+#   error platform not supported
+# endif
 
 #else
 #  error platform not supported
