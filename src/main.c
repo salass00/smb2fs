@@ -29,6 +29,10 @@
 
 #include "smb2fs.h"
 
+#include <smb2/smb2.h>
+#include <smb2/libsmb2.h>
+#include <ctype.h>
+
 #include "smb2-handler_rev.h"
 
 struct fuse_context *_fuse_context_;
@@ -48,13 +52,84 @@ struct smb2fs_mount_data {
 };
 
 struct smb2fs {
-	/* FIXME: Add fs state data here */
+	struct smb2_context *smb2;
+	BOOL                 connected:1;
 };
 
 struct smb2fs *fsd;
 
+static void smb2fs_destroy(void *initret);
+
+static void *smb2fs_init(struct fuse_conn_info *fci)
+{
+	struct smb2fs_mount_data *md;
+	struct smb2_url          *url;
+
+	md = fuse_get_context()->private_data;
+
+	fsd = calloc(1, sizeof(*fsd));
+	if (fsd == NULL)
+		return NULL;
+
+	fsd->smb2 = smb2_init_context();
+	if (fsd->smb2 == NULL)
+	{
+		IExec->DebugPrintF("[smb2fs] Failed to init context\n");
+		smb2fs_destroy(fsd);
+		return NULL;
+	}
+
+	url = smb2_parse_url(fsd->smb2, (char *)md->args[ARG_URL]);
+	if (url == NULL)
+	{
+		IExec->DebugPrintF("[smb2fs] Failed to parse url: %s\n", md->args[ARG_URL]);
+		smb2fs_destroy(fsd);
+		return NULL;
+	}
+
+	smb2_set_security_mode(fsd->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
+
+	if (smb2_connect_share(fsd->smb2, url->server, url->share, url->user, url->password) < 0)
+	{
+		IExec->DebugPrintF("[smb2fs] smb2_connect_share failed. %s\n", smb2_get_error(fsd->smb2));
+		smb2_destroy_url(url);
+		smb2fs_destroy(fsd);
+		return NULL;
+	}
+
+	fsd->connected = TRUE;
+
+	smb2_destroy_url(url);
+	url = NULL;
+
+	return fsd;
+
+}
+
+static void smb2fs_destroy(void *initret)
+{
+	if (fsd == NULL)
+		return;
+
+	if (fsd->smb2 != NULL)
+	{
+		if (fsd->connected)
+		{
+			smb2_disconnect_share(fsd->smb2);
+			fsd->connected = FALSE;
+		}
+		smb2_destroy_context(fsd->smb2);
+		fsd->smb2 = NULL;
+	}
+
+	free(fsd);
+	fsd = NULL;
+}
+
 static struct fuse_operations smb2fs_ops =
 {
+	.init    = smb2fs_init,
+	.destroy = smb2fs_destroy
 	/* FIXME: Implement and add fs ops here */
 };
 

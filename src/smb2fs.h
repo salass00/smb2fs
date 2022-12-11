@@ -35,8 +35,6 @@
 #include <proto/filesysbox.h>
 #include <proto/bsdsocket.h>
 
-#include <ctype.h>
-
 #define ID_SMB2_DISK (0x534D4202UL)
 
 struct Interface *open_interface(CONST_STRPTR name, int version);
