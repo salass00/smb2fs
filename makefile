@@ -8,7 +8,7 @@ LIBSMB2DIR = libsmb2-git
 
 OPTIMIZE = -O2
 DEBUG    = -gstabs
-INCLUDES = -I./$(LIBSMB2DIR)/include
+INCLUDES = -I. -I./$(LIBSMB2DIR)/include
 WARNINGS = -Wall -Wwrite-strings -Werror
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(WARNINGS)
@@ -17,7 +17,7 @@ LIBS    =
 
 STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = 
+SRCS = start.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
