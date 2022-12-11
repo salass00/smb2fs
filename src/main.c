@@ -29,19 +29,26 @@
 
 #include "smb2fs.h"
 
+#include <proto/intuition.h>
+#include <classes/requester.h>
+
 #include <smb2/smb2.h>
 #include <smb2/libsmb2.h>
+
 #include <ctype.h>
+#include <stdio.h>
 
 #include "smb2-handler_rev.h"
 
 struct fuse_context *_fuse_context_;
 
 static const char cmd_template[] = 
-	"URL/A";
+	"URL/A,"
+	"NOPASSWORD/S";
 
 enum {
 	ARG_URL,
+	ARG_NOPASSWORD,
 	NUM_ARGS
 };
 
@@ -57,6 +64,78 @@ struct smb2fs {
 };
 
 struct smb2fs *fsd;
+
+static char *request_password(struct smb2_url *url)
+{
+	struct IntuitionIFace *IIntuition;
+	char                  *password = NULL;
+
+	IIntuition = (struct IntuitionIFace *)open_interface("intuition.library", 53);
+	if (IIntuition != NULL)
+	{
+		struct ClassLibrary *RequesterBase;
+		Class               *RequesterClass;
+
+		RequesterBase = IIntuition->OpenClass("requester.class", 53, &RequesterClass);
+		if (RequesterBase != NULL)
+		{
+			struct Screen *screen;
+
+			screen = IIntuition->LockPubScreen(NULL);
+			if (screen != NULL)
+			{
+				TEXT    bodytext[256];
+				TEXT    buffer[256];
+				Object *reqobj;
+
+				buffer[0] = '\0';
+
+				snprintf(bodytext, sizeof(bodytext), "Enter password for %s@%s", url->user, url->server);
+
+				reqobj = IIntuition->NewObject(RequesterClass, NULL,
+					REQ_Type,        REQTYPE_STRING,
+					REQ_Image,       REQIMAGE_QUESTION,
+					REQ_TitleText,   VERS,
+					REQ_BodyText,    bodytext,
+					REQ_GadgetText,  "_Ok|_Cancel",
+					REQS_AllowEmpty, FALSE,
+					REQS_Invisible,  TRUE,
+					REQS_Buffer,     buffer,
+					REQS_MaxChars,   sizeof(buffer),
+					REQS_ReturnEnds, TRUE,
+					TAG_END);
+
+				if (reqobj != NULL)
+				{
+					struct orRequest reqmsg;
+					LONG             result;
+
+					reqmsg.MethodID  = RM_OPENREQ;
+					reqmsg.or_Attrs  = NULL;
+					reqmsg.or_Window = NULL;
+					reqmsg.or_Screen = screen;
+
+					result = IIntuition->IDoMethodA(reqobj, (Msg)&reqmsg);
+
+					if (result && buffer[0] != '\0')
+					{
+						password = strdup(buffer);
+					}
+
+					IIntuition->DisposeObject(reqobj);
+				}
+
+				IIntuition->UnlockPubScreen(NULL, screen);
+			}
+
+			IIntuition->CloseClass(RequesterBase);
+		}
+
+		close_interface((struct Interface *)IIntuition);
+	}
+
+	return password;
+}
 
 static void smb2fs_destroy(void *initret);
 
@@ -85,6 +164,16 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		IExec->DebugPrintF("[smb2fs] Failed to parse url: %s\n", md->args[ARG_URL]);
 		smb2fs_destroy(fsd);
 		return NULL;
+	}
+
+	if (url->password == NULL && !md->args[ARG_NOPASSWORD])
+	{
+		url->password = request_password(url);
+		if (url->password == NULL)
+		{
+			smb2fs_destroy(fsd);
+			return NULL;
+		}
 	}
 
 	smb2_set_security_mode(fsd->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
