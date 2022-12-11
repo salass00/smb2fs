@@ -17,7 +17,7 @@ LIBS    =
 
 STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start.c
+SRCS = start.c main.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
