@@ -44,10 +44,12 @@ struct fuse_context *_fuse_context_;
 
 static const char cmd_template[] = 
 	"URL/A,"
+	"VOLUME,"
 	"NOPASSWORD/S";
 
 enum {
 	ARG_URL,
+	ARG_VOLUME,
 	ARG_NOPASSWORD,
 	NUM_ARGS
 };
@@ -187,6 +189,15 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	}
 
 	fsd->connected = TRUE;
+
+	if (md->args[ARG_VOLUME])
+	{
+		strlcpy(fci->volume_name, (const char *)md->args[ARG_VOLUME], CONN_VOLUME_NAME_BYTES);
+	}
+	else
+	{
+		snprintf(fci->volume_name, CONN_VOLUME_NAME_BYTES, "%s-%s", url->server, url->share);
+	}
 
 	smb2_destroy_url(url);
 	url = NULL;
