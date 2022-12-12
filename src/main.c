@@ -271,6 +271,11 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	sfs->f_namemax = smb2_sfs.f_namemax;
 	sfs->f_flag    = ST_CASE_SENSITIVE; /* FIXME: Use smb2_sfs.f_flag? */
 
+	if (sfs->f_namemax > 255)
+	{
+		sfs->f_namemax = 255;
+	}
+
 	return 0;
 }
 
@@ -398,6 +403,32 @@ static int smb2fs_releasedir(const char *path, struct fuse_file_info *fi)
 	return 0;
 }
 
+static int smb2fs_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
+	fbx_off_t offset, struct fuse_file_info *fi)
+{
+	struct smb2dir    *smb2dir;
+	struct smb2dirent *ent;
+	struct fbx_stat    stbuf;
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fi == NULL)
+		return -EINVAL;
+
+	smb2dir = (struct smb2dir *)(size_t)fi->fh;
+	if (smb2dir == NULL)
+		return -EINVAL;
+
+	while ((ent = smb2_readdir(fsd->smb2, smb2dir)) != NULL)
+	{
+		smb2fs_fillstat(&stbuf, &ent->st);
+		filler(buffer, ent->name, &stbuf, 0);
+	}
+
+	return 0;
+}
+
 static struct fuse_operations smb2fs_ops =
 {
 	.init       = smb2fs_init,
@@ -406,7 +437,8 @@ static struct fuse_operations smb2fs_ops =
 	.getattr    = smb2fs_getattr,
 	.fgetattr   = smb2fs_fgetattr,
 	.opendir    = smb2fs_opendir,
-	.releasedir = smb2fs_releasedir
+	.releasedir = smb2fs_releasedir,
+	.readdir    = smb2fs_readdir
 	/* FIXME: Implement and add fs ops here */
 };
 
