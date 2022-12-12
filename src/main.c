@@ -37,6 +37,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "smb2-handler_rev.h"
 
@@ -63,6 +64,7 @@ struct smb2fs_mount_data {
 struct smb2fs {
 	struct smb2_context *smb2;
 	BOOL                 connected:1;
+	char                *rootdir;
 };
 
 struct smb2fs *fsd;
@@ -222,14 +224,61 @@ static void smb2fs_destroy(void *initret)
 		fsd->smb2 = NULL;
 	}
 
+	if (fsd->rootdir != NULL)
+	{
+		free(fsd->rootdir);
+		fsd->rootdir = NULL;
+	}
+
 	free(fsd);
 	fsd = NULL;
+}
+
+static int smb2fs_statfs(const char *path, struct statvfs *sfs)
+{
+	struct smb2_statvfs smb2_sfs;
+	int                 rc;
+	char                pathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (path == NULL || path[0] == '\0')
+		path = "/";
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
+		strlcat(pathbuf, path, sizeof(pathbuf));
+		path = pathbuf;
+	}
+
+	rc = smb2_statvfs(fsd->smb2, path, &smb2_sfs);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	sfs->f_bsize   = smb2_sfs.f_bsize;
+	sfs->f_frsize  = smb2_sfs.f_frsize;
+	sfs->f_blocks  = smb2_sfs.f_blocks;
+	sfs->f_bfree   = smb2_sfs.f_bfree;
+	sfs->f_bavail  = smb2_sfs.f_bavail;
+	sfs->f_files   = smb2_sfs.f_files;
+	sfs->f_ffree   = smb2_sfs.f_ffree;
+	sfs->f_favail  = smb2_sfs.f_favail;
+	sfs->f_fsid    = smb2_sfs.f_fsid;
+	sfs->f_namemax = smb2_sfs.f_namemax;
+	sfs->f_flag    = ST_CASE_SENSITIVE; /* FIXME: Use smb2_sfs.f_flag */
+
+	return 0;
 }
 
 static struct fuse_operations smb2fs_ops =
 {
 	.init    = smb2fs_init,
-	.destroy = smb2fs_destroy
+	.destroy = smb2fs_destroy,
+	.statfs  = smb2fs_statfs
 	/* FIXME: Implement and add fs ops here */
 };
 
