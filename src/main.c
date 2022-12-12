@@ -269,16 +269,99 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	sfs->f_favail  = smb2_sfs.f_favail;
 	sfs->f_fsid    = smb2_sfs.f_fsid;
 	sfs->f_namemax = smb2_sfs.f_namemax;
-	sfs->f_flag    = ST_CASE_SENSITIVE; /* FIXME: Use smb2_sfs.f_flag */
+	sfs->f_flag    = ST_CASE_SENSITIVE; /* FIXME: Use smb2_sfs.f_flag? */
+
+	return 0;
+}
+
+static void smb2fs_fillstat(struct fbx_stat *stbuf, const struct smb2_stat_64 *smb2_st)
+{
+	memset(stbuf, 0, sizeof(*stbuf));
+
+	switch (smb2_st->smb2_type)
+	{
+		case SMB2_TYPE_FILE:
+			stbuf->st_mode = _IFREG;
+			break;
+		case SMB2_TYPE_DIRECTORY:
+			stbuf->st_mode = _IFDIR;
+			break;
+		case SMB2_TYPE_LINK:
+			stbuf->st_mode = _IFLNK;
+			break;
+	}
+	stbuf->st_mode |= S_IRWXU; /* Can we do something better? */
+
+	stbuf->st_ino       = smb2_st->smb2_ino;
+	stbuf->st_nlink     = smb2_st->smb2_nlink;
+	stbuf->st_size      = smb2_st->smb2_size;
+	stbuf->st_atime     = smb2_st->smb2_atime;
+	stbuf->st_atimensec = smb2_st->smb2_atime_nsec;
+	stbuf->st_mtime     = smb2_st->smb2_mtime;
+	stbuf->st_mtimensec = smb2_st->smb2_mtime_nsec;
+	stbuf->st_ctime     = smb2_st->smb2_ctime;
+	stbuf->st_ctimensec = smb2_st->smb2_ctime_nsec;
+}
+
+static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
+{
+	struct smb2_stat_64 smb2_st;
+	int                 rc;
+	char                pathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
+		strlcat(pathbuf, path, sizeof(pathbuf));
+		path = pathbuf;
+	}
+
+	rc = smb2_stat(fsd->smb2, path, &smb2_st);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	smb2fs_fillstat(stbuf, &smb2_st);
+
+	return 0;
+}
+
+static int smb2fs_fgetattr(const char *path, struct fbx_stat *stbuf,
+                           struct fuse_file_info *fi)
+{
+	struct smb2fh      *fh;
+	struct smb2_stat_64 smb2_st;
+	int                 rc;
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	fh = (struct smb2fh *)(size_t)fi->fh;
+	if (fh == NULL)
+		return -EINVAL;
+
+	rc = smb2_fstat(fsd->smb2, fh, &smb2_st);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	smb2fs_fillstat(stbuf, &smb2_st);
 
 	return 0;
 }
 
 static struct fuse_operations smb2fs_ops =
 {
-	.init    = smb2fs_init,
-	.destroy = smb2fs_destroy,
-	.statfs  = smb2fs_statfs
+	.init     = smb2fs_init,
+	.destroy  = smb2fs_destroy,
+	.statfs   = smb2fs_statfs,
+	.getattr  = smb2fs_getattr,
+	.fgetattr = smb2fs_fgetattr
 	/* FIXME: Implement and add fs ops here */
 };
 
