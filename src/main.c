@@ -333,18 +333,18 @@ static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
 static int smb2fs_fgetattr(const char *path, struct fbx_stat *stbuf,
                            struct fuse_file_info *fi)
 {
-	struct smb2fh      *fh;
+	struct smb2fh      *smb2fh;
 	struct smb2_stat_64 smb2_st;
 	int                 rc;
 
 	if (fsd == NULL)
 		return -ENODEV;
 
-	fh = (struct smb2fh *)(size_t)fi->fh;
-	if (fh == NULL)
+	smb2fh = (struct smb2fh *)(size_t)fi->fh;
+	if (smb2fh == NULL)
 		return -EINVAL;
 
-	rc = smb2_fstat(fsd->smb2, fh, &smb2_st);
+	rc = smb2_fstat(fsd->smb2, smb2fh, &smb2_st);
 	if (rc < 0)
 	{
 		return rc;
@@ -355,13 +355,58 @@ static int smb2fs_fgetattr(const char *path, struct fbx_stat *stbuf,
 	return 0;
 }
 
+static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
+{
+	struct smb2dir *smb2dir;
+	char            pathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
+		strlcat(pathbuf, path, sizeof(pathbuf));
+		path = pathbuf;
+	}
+
+	smb2dir = smb2_opendir(fsd->smb2, path);
+	if (smb2dir == NULL)
+	{
+		return -ENOENT;
+	}
+
+	fi->fh = (uint64_t)(size_t)smb2dir;
+
+	return 0;
+}
+
+static int smb2fs_releasedir(const char *path, struct fuse_file_info *fi)
+{
+	struct smb2dir *smb2dir;
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	smb2dir = (struct smb2dir *)(size_t)fi->fh;
+	if (smb2dir == NULL)
+		return -EINVAL;
+
+	smb2_closedir(fsd->smb2, smb2dir);
+	fi->fh = (uint64_t)(size_t)NULL;
+
+	return 0;
+}
+
 static struct fuse_operations smb2fs_ops =
 {
-	.init     = smb2fs_init,
-	.destroy  = smb2fs_destroy,
-	.statfs   = smb2fs_statfs,
-	.getattr  = smb2fs_getattr,
-	.fgetattr = smb2fs_fgetattr
+	.init       = smb2fs_init,
+	.destroy    = smb2fs_destroy,
+	.statfs     = smb2fs_statfs,
+	.getattr    = smb2fs_getattr,
+	.fgetattr   = smb2fs_fgetattr,
+	.opendir    = smb2fs_opendir,
+	.releasedir = smb2fs_releasedir
 	/* FIXME: Implement and add fs ops here */
 };
 
