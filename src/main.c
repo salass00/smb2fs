@@ -192,6 +192,55 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	fsd->connected = TRUE;
 
+	if (url->path != NULL && url->path[0] != '\0')
+	{
+		const char *patharg = url->path;
+		int         pos     = 0;
+		char        pathbuf[MAXPATHLEN];
+		char        namebuf[256];
+
+		pathbuf[0] = '\0';
+
+		do
+		{
+			pos = IDOS->SplitName(patharg, '/', namebuf, pos, sizeof(namebuf));
+
+			if (namebuf[0] == '\0')
+				continue;
+
+			if (strcmp(namebuf, ".") == 0)
+				continue;
+
+			if (strcmp(namebuf, "..") == 0)
+			{
+				char *p;
+
+				/* If not already at root, go up one level */
+				p = strrchr(pathbuf, '/');
+				if (p != NULL)
+				{
+					*p = '\0';
+					continue;
+				}
+			}
+
+			strlcat(pathbuf, "/", sizeof(pathbuf));
+			strlcat(pathbuf, namebuf, sizeof(pathbuf));
+		}
+		while (pos != -1);
+
+		if (pathbuf[0] != '\0')
+		{
+			fsd->rootdir = strdup(pathbuf);
+			if (fsd->rootdir == NULL)
+			{
+				smb2_destroy_url(url);
+				smb2fs_destroy(fsd);
+				return NULL;
+			}
+		}
+	}
+
 	if (md->args[ARG_VOLUME])
 	{
 		strlcpy(fci->volume_name, (const char *)md->args[ARG_VOLUME], CONN_VOLUME_NAME_BYTES);
@@ -490,10 +539,10 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 		return NULL;
 	}
 
-	//IExec->DebugPrintF("startup: '%s'\n", startup);
+	//IExec->DebugPrintF("[smb2fs] startup: '%s'\n", startup);
 	strcpy(argstr, startup);
 	remove_double_quotes(argstr);
-	//IExec->DebugPrintF("argstr: '%s'\n", argstr);
+	//IExec->DebugPrintF("[smb2fs] argstr: '%s'\n", argstr);
 	strcat(argstr, "\n");
 
 	memset(&in_rda, 0, sizeof(in_rda));
