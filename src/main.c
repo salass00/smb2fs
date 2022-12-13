@@ -229,7 +229,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		}
 		while (pos != -1);
 
-		if (pathbuf[0] != '\0')
+		if (pathbuf[0] != '\0' && strcmp(pathbuf, "/") != 0)
 		{
 			fsd->rootdir = strdup(pathbuf);
 			if (fsd->rootdir == NULL)
@@ -302,6 +302,8 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 		path = pathbuf;
 	}
 
+	if (path[0] == '/') path++; /* Remove initial slash */
+
 	rc = smb2_statvfs(fsd->smb2, path, &smb2_sfs);
 	if (rc < 0)
 	{
@@ -373,6 +375,8 @@ static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
 		path = pathbuf;
 	}
 
+	if (path[0] == '/') path++; /* Remove initial slash */
+
 	rc = smb2_stat(fsd->smb2, path, &smb2_st);
 	if (rc < 0)
 	{
@@ -423,6 +427,8 @@ static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
 		strlcat(pathbuf, path, sizeof(pathbuf));
 		path = pathbuf;
 	}
+
+	if (path[0] == '/') path++; /* Remove initial slash */
 
 	smb2dir = smb2_opendir(fsd->smb2, path);
 	if (smb2dir == NULL)
