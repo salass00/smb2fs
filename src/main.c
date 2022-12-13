@@ -682,6 +682,32 @@ static int smb2fs_write(const char *path, const char *buffer, size_t size,
 	return result;
 }
 
+static int smb2fs_truncate(const char *path, fbx_off_t size)
+{
+	int  rc;
+	char pathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
+		strlcat(pathbuf, path, sizeof(pathbuf));
+		path = pathbuf;
+	}
+
+	if (path[0] == '/') path++; /* Remove initial slash */
+
+	rc = smb2_truncate(fsd->smb2, path, size);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smb2fs_readlink(const char *path, char *buffer, size_t size)
 {
 	int  rc;
@@ -724,6 +750,7 @@ static struct fuse_operations smb2fs_ops =
 	.release    = smb2fs_release,
 	.read       = smb2fs_read,
 	.write      = smb2fs_write,
+	.truncate   = smb2fs_truncate,
 	.readlink   = smb2fs_readlink
 	/* FIXME: Implement and add fs ops here */
 };
