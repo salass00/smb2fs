@@ -484,6 +484,106 @@ static int smb2fs_readdir(const char *path, void *buffer, fuse_fill_dir_t filler
 	return 0;
 }
 
+static int smb2fs_open(const char *path, struct fuse_file_info *fi)
+{
+	struct smb2fh *smb2fh;
+	int            flags;
+	char           pathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
+		strlcat(pathbuf, path, sizeof(pathbuf));
+		path = pathbuf;
+	}
+
+	if (path[0] == '/') path++; /* Remove initial slash */
+
+	flags = O_RDWR;
+
+	for (;;)
+	{
+		smb2fh = smb2_open(fsd->smb2, path, flags);
+		if (smb2fh != NULL)
+		{
+			fi->fh = (uint64_t)(size_t)smb2fh;
+			return 0;
+		}
+		else
+		{
+			/* If O_RDWR failed, try O_RDONLY */
+			if ((flags & O_ACCMODE) == O_RDWR)
+			{
+				flags = (flags & ~O_ACCMODE) | O_RDONLY;
+				continue;
+			}
+			return -ENOENT;
+		}
+	}
+}
+
+static int smb2fs_release(const char *path, struct fuse_file_info *fi)
+{
+	struct smb2fh *smb2fh;
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	smb2fh = (struct smb2fh *)(size_t)fi->fh;
+	if (smb2fh == NULL)
+		return -EINVAL;
+
+	smb2_close(fsd->smb2, smb2fh);
+	fi->fh = (uint64_t)(size_t)NULL;
+
+	return 0;
+}
+
+static int smb2fs_read(const char *path, char *buffer, size_t size,
+                       fbx_off_t offset, struct fuse_file_info *fi)
+{
+	struct smb2fh *smb2fh;
+	int64_t        new_offset;
+	int            rc;
+	int            result;
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	smb2fh = (struct smb2fh *)(size_t)fi->fh;
+	if (smb2fh == NULL)
+		return -EINVAL;
+
+	new_offset = smb2_lseek(fsd->smb2, smb2fh, offset, SEEK_SET, NULL);
+	if (new_offset < 0)
+	{
+		return (int)new_offset;
+	}
+
+	result = 0;
+
+	while (size > 0)
+	{
+		rc = smb2_read(fsd->smb2, smb2fh, (uint8_t *)buffer, size);
+		if (rc <= 0)
+			break;
+
+		result += rc;
+		buffer += rc;
+		size   += rc;
+	}
+
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	return result;
+}
+
 static struct fuse_operations smb2fs_ops =
 {
 	.init       = smb2fs_init,
@@ -493,7 +593,10 @@ static struct fuse_operations smb2fs_ops =
 	.fgetattr   = smb2fs_fgetattr,
 	.opendir    = smb2fs_opendir,
 	.releasedir = smb2fs_releasedir,
-	.readdir    = smb2fs_readdir
+	.readdir    = smb2fs_readdir,
+	.open       = smb2fs_open,
+	.release    = smb2fs_release,
+	.read       = smb2fs_read
 	/* FIXME: Implement and add fs ops here */
 };
 
