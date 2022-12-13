@@ -629,7 +629,7 @@ static int smb2fs_read(const char *path, char *buffer, size_t size,
 
 		result += rc;
 		buffer += rc;
-		size   += rc;
+		size   -= rc;
 	}
 
 	if (rc < 0)
