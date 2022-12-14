@@ -1,0 +1,16 @@
+(welcome)
+(set @default-dest "SYS:"
+(copylib
+	(prompt "Copying smb2-handler")
+	(help @copylib-help)
+	(source "L/smb2-handler")
+	(dest "L:")
+)
+(copyfiles
+	(prompt "Copying release notes")
+	(help @copyfiles-help)
+	(source "releasenotes")
+	(dest "SYS:Documentation/ReleaseNotes/smb2fs_relnotes")
+)
+(exit)
+
