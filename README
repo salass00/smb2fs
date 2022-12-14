@@ -1,0 +1,45 @@
+smb2-handler is a filesystem for accessing files remotely using the SMB2/3
+protocols. The protocol implementation is based on the currently latest git
+version of libsmb2 (https://github.com/sahlberg/libsmb2).
+
+Requirements:
+
+- newlib.library V53.40 or newer (or V53.30 as included in 4.1 FE).
+
+- filesysbox.library 54.4 or newer.
+
+Usage:
+
+Create a DOSDriver with the contents:
+Handler   = L:smb2-handler
+StackSize = 65536
+Priority  = 5
+GlobVec   = -1
+Startup   = "<args>"
+
+Where <args> should follow the template:
+
+URL/A,VOLUME,NOPASSWORDREQ/S
+
+URL is the address of the samba share in the format:
+smb://[<domain;][<username>[:<password>]@]<host>[:<port>]/<share>/<path>
+
+VOLUME is the AmigaDOS volume name (if not specified it defaults to
+<server>-<share>).
+
+NOPASSWORDREQ stops a password requester from being opened if no password is
+specified.
+
+To connect to the share myshare on server mypc using username "myuser" and
+password "password123" use:
+
+Startup = "smb://myuser:password123@mypc/myshare"
+
+To connect to the same share using a guest account you can use:
+
+Startup = "smb://mypc/myshare NOPASSWORDREQ"
+
+If you want the handler to be started immediately on mount, rather than on the
+first access, then make sure that ACTIVATE=1 is set in either in the icon
+tooltypes or in the DOSDriver file itself.
+
