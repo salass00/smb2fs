@@ -9,15 +9,18 @@ LIBSMB2DIR = libsmb2-git
 OPTIMIZE = -O2
 DEBUG    = -gstabs
 INCLUDES = -I. -I./$(LIBSMB2DIR)/include
+DEFINES  = 
 WARNINGS = -Wall -Wwrite-strings -Werror
 
-CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(WARNINGS)
+#DEFINES += -DUSE_BSDSOCKET_LIB
+
+CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -static
 LIBS    = 
 
 STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start.c main.c
+SRCS = start.c main.c bsdsocket-stubs.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
