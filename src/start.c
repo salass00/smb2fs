@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
 	if (argc == 0)
 	{
-		IExec->DebugPrintF("[ssh2fs] WB startup is not supported!\n");
+		IExec->DebugPrintF("[smb2fs] WB startup is not supported!\n");
 		return RETURN_FAIL;
 	}
 
@@ -99,9 +99,9 @@ int main(int argc, char **argv)
 	}
 
 	if (me->pr_CLibData == NULL) {
-		IExec->DebugPrintF("[ssh2fs] pr_CLibData was not set (newlib.library V%ld.%ld).\n",
+		IExec->DebugPrintF("[smb2fs] pr_CLibData was not set (newlib.library V%ld.%ld).\n",
 			NewlibBase->lib_Version, NewlibBase->lib_Revision);
-		IExec->DebugPrintF("[ssh2fs] Handler won't be able to exit cleanly on dismount.\n");
+		IExec->DebugPrintF("[smb2fs] Handler won't be able to exit cleanly on dismount.\n");
 	}
 
 	pkt = (struct DosPacket *)argv;
