@@ -1,4 +1,4 @@
-; Script to make up a release archive
+; Script for generating a release archive
 
 make all
 
@@ -6,6 +6,14 @@ set libsmb2 libsmb2-git
 set destdir RAM:mkrelease
 set fullvers `c:version file smb2-handler`
 set numvers `c:cut "$fullvers" word 2`
+
+which changetooltype
+if warn
+  echo "The changetooltype command could not be found on your system."
+  echo "Please download and install the command from:"
+  echo "http://os4depot.net/?function=showfile&file=utility/misc/changetooltype.lha"
+  quit 10
+endif
 
 delete all force ${destdir}
 makedir all force ${destdir}/smb2fs/L
