@@ -1,0 +1,24 @@
+; Script to make up a release archive
+
+make all
+
+set libsmb2 libsmb2-git
+set destdir RAM:mkrelease
+set fullvers `c:version file smb2-handler`
+set numvers `c:cut "$fullvers" word 2`
+
+delete all force ${destdir}
+makedir all force ${destdir}/smb2fs/L
+
+copy clone COPYING ${destdir}/smb2fs
+copy clone ${libsmb2}/LICENCE-LGPL-2.1.txt ${destdir}/smb2fs/LICENCE-libsmb2
+copy clone smb2-handler ${destdir}/smb2fs/L
+
+copy clone ENV:Sys/def_drawer.info ${destdir}/smb2fs.info
+copy clone ENV:Sys/def_ascii.info ${destdir}/smb2fs/COPYING.info
+copy clone ENV:Sys/def_ascii.info ${destdir}/smb2fs/LICENCE-libsmb2.info
+
+delete force RAM:smb2fs-$numvers.lha
+lha a -x -r RAM:smb2fs-$numvers.lha ${destdir}/
+
+echo "RAM:smb2fs-$numvers.lha created"
