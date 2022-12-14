@@ -708,6 +708,27 @@ static int smb2fs_truncate(const char *path, fbx_off_t size)
 	return 0;
 }
 
+static int smb2fs_ftruncate(const char *path, fbx_off_t size, struct fuse_file_info *fi)
+{
+	struct smb2fh *smb2fh;
+	int            rc;
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	smb2fh = (struct smb2fh *)(size_t)fi->fh;
+	if (smb2fh == NULL)
+		return -EINVAL;
+
+	rc = smb2_ftruncate(fsd->smb2, smb2fh, size);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smb2fs_readlink(const char *path, char *buffer, size_t size)
 {
 	int  rc;
@@ -751,6 +772,7 @@ static struct fuse_operations smb2fs_ops =
 	.read       = smb2fs_read,
 	.write      = smb2fs_write,
 	.truncate   = smb2fs_truncate,
+	.ftruncate  = smb2fs_ftruncate,
 	.readlink   = smb2fs_readlink
 	/* FIXME: Implement and add fs ops here */
 };
