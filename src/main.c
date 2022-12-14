@@ -799,6 +799,43 @@ static int smb2fs_readlink(const char *path, char *buffer, size_t size)
 	return 0;
 }
 
+static int smb2fs_rename(const char *srcpath, const char *dstpath)
+{
+	int  rc;
+	char srcpathbuf[MAXPATHLEN];
+	char dstpathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(srcpathbuf, fsd->rootdir, sizeof(srcpathbuf));
+		strlcat(srcpathbuf, srcpath, sizeof(srcpathbuf));
+		srcpath = srcpathbuf;
+		strlcpy(dstpathbuf, fsd->rootdir, sizeof(dstpathbuf));
+		strlcat(dstpathbuf, dstpath, sizeof(dstpathbuf));
+		dstpath = dstpathbuf;
+	}
+
+	if (srcpath[0] == '/') srcpath++; /* Remove initial slash */
+	if (dstpath[0] == '/') dstpath++;
+
+	rc = smb2_rename(fsd->smb2, srcpath, dstpath);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	return 0;
+}
+
+static int smb2fs_relabel(const char *label)
+{
+	/* Nothing to do here */
+	return 0;
+}
+
 static struct fuse_operations smb2fs_ops =
 {
 	.init       = smb2fs_init,
@@ -819,8 +856,9 @@ static struct fuse_operations smb2fs_ops =
 	.ftruncate  = smb2fs_ftruncate,
 	.unlink     = smb2fs_unlink,
 	.rmdir      = smb2fs_rmdir,
-	.readlink   = smb2fs_readlink
-	/* FIXME: Implement and add fs ops here */
+	.readlink   = smb2fs_readlink,
+	.rename     = smb2fs_rename,
+	.relabel    = smb2fs_relabel
 };
 
 static void remove_double_quotes(char *argstr)
