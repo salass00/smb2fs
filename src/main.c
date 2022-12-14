@@ -38,12 +38,12 @@ struct fuse_context *_fuse_context_;
 static const char cmd_template[] = 
 	"URL/A,"
 	"VOLUME,"
-	"NOPASSWORD/S";
+	"NOPASSWORDREQ/S";
 
 enum {
 	ARG_URL,
 	ARG_VOLUME,
-	ARG_NOPASSWORD,
+	ARG_NOPASSWORDREQ,
 	NUM_ARGS
 };
 
@@ -162,7 +162,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		return NULL;
 	}
 
-	if (url->password == NULL && !md->args[ARG_NOPASSWORD])
+	if (url->password == NULL && !md->args[ARG_NOPASSWORDREQ])
 	{
 		url->password = request_password(url);
 		if (url->password == NULL)
