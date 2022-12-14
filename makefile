@@ -20,7 +20,7 @@ LIBS    =
 
 STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start.c main.c bsdsocket-stubs.c
+SRCS = start.c main.c time.c bsdsocket-stubs.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
