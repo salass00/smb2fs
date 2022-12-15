@@ -595,6 +595,7 @@ static int smb2fs_read(const char *path, char *buffer, size_t size,
 {
 	struct smb2fh *smb2fh;
 	int64_t        new_offset;
+	size_t         max_read_size, count;
 	int            rc;
 	int            result;
 
@@ -611,11 +612,17 @@ static int smb2fs_read(const char *path, char *buffer, size_t size,
 		return (int)new_offset;
 	}
 
+	max_read_size = smb2_get_max_read_size(fsd->smb2);
+	//IExec->DebugPrintF("max_read_size: %lu\n", max_read_size);
 	result = 0;
 
 	while (size > 0)
 	{
-		rc = smb2_read(fsd->smb2, smb2fh, (uint8_t *)buffer, size);
+		count = size;
+		if (count > max_read_size)
+			count = max_read_size;
+
+		rc = smb2_read(fsd->smb2, smb2fh, (uint8_t *)buffer, count);
 		if (rc <= 0)
 			break;
 
@@ -637,6 +644,7 @@ static int smb2fs_write(const char *path, const char *buffer, size_t size,
 {
 	struct smb2fh *smb2fh;
 	int64_t        new_offset;
+	size_t         max_write_size, count;
 	int            rc;
 	int            result;
 
@@ -653,11 +661,17 @@ static int smb2fs_write(const char *path, const char *buffer, size_t size,
 		return (int)new_offset;
 	}
 
+	max_write_size = smb2_get_max_write_size(fsd->smb2);
+	//IExec->DebugPrintF("max_write_size: %lu\n", max_write_size);
 	result = 0;
 
 	while (size > 0)
 	{
-		rc = smb2_write(fsd->smb2, smb2fh, (const uint8_t *)buffer, size);
+		count = size;
+		if (count > max_write_size)
+			count = max_write_size;
+
+		rc = smb2_write(fsd->smb2, smb2fh, (const uint8_t *)buffer, count);
 		if (rc < 0)
 			break;
 
