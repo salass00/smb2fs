@@ -325,18 +325,19 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
         FD_ZERO(&efds);
         op = ip = 0;
         for (i = 0; i < nfds; ++i) {
+                int fd = fds[i].fd;
                 fds[i].revents = 0;
                 if(fds[i].events & (POLLIN|POLLPRI)) {
                         ip = &ifds;
-                        FD_SET(fds[i].fd, ip);
+                        FD_SET(fd, ip);
                 }
                 if(fds[i].events & POLLOUT)  {
                         op = &ofds;
-                        FD_SET(fds[i].fd, op);
+                        FD_SET(fd, op);
                 }
-                FD_SET(fds[i].fd, &efds);
-                if (fds[i].fd > maxfd) {
-                        maxfd = fds[i].fd;
+                FD_SET(fd, &efds);
+                if (fd > maxfd) {
+                        maxfd = fd;
                 }
         } 
 
