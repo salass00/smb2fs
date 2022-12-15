@@ -323,7 +323,8 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
         FD_ZERO(&ifds);
         FD_ZERO(&ofds);
         FD_ZERO(&efds);
-        for (i = 0, op = ip = 0; i < nfds; ++i) {
+        op = ip = 0;
+        for (i = 0; i < nfds; ++i) {
                 fds[i].revents = 0;
                 if(fds[i].events & (POLLIN|POLLPRI)) {
                         ip = &ifds;
@@ -343,24 +344,29 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                 toptr = 0;
         } else {
                 toptr = &timeout;
-                timeout.tv_sec = timo / 1000;
-                timeout.tv_usec = (timo - timeout.tv_sec * 1000) * 1000;
+                timeout.tv_sec = (unsigned)timo / 1000;
+                timeout.tv_usec = ((unsigned)timo % 1000) * 1000;
         }
 
         rc = select(maxfd + 1, ip, op, &efds, toptr);
 
-        if(rc <= 0)
-                return rc;
+        if(rc < 0)
+                return -1;
 
-        if(rc > 0)  {
-                for (i = 0; i < nfds; ++i) {
-                        int fd = fds[i].fd;
-                        if(fds[i].events & (POLLIN|POLLPRI) && FD_ISSET(fd, &ifds))
-                                fds[i].revents |= POLLIN;
-                        if(fds[i].events & POLLOUT && FD_ISSET(fd, &ofds))
-                                fds[i].revents |= POLLOUT;
-                        if(FD_ISSET(fd, &efds))
-                                fds[i].revents |= POLLHUP;
+        rc = 0;
+        for (i = 0; i < nfds; ++i) {
+                int fd = fds[i].fd;
+                short events = fds[i].events;
+                short revents = 0;
+                if(events & (POLLIN|POLLPRI) && FD_ISSET(fd, &ifds))
+                        revents |= POLLIN;
+                if(events & POLLOUT && FD_ISSET(fd, &ofds))
+                        revents |= POLLOUT;
+                if(FD_ISSET(fd, &efds))
+                        revents |= POLLHUP;
+                if (revents) {
+                        fds[i].revents = revents;
+                        rc++;
                 }
         }
         return rc;
