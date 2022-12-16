@@ -327,6 +327,8 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
         for (i = 0; i < nfds; ++i) {
                 int fd = fds[i].fd;
                 fds[i].revents = 0;
+                if (fd < 0)
+                        continue;
                 if(fds[i].events & (POLLIN|POLLPRI)) {
                         ip = &ifds;
                         FD_SET(fd, ip);
@@ -359,6 +361,8 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                 int fd = fds[i].fd;
                 short events = fds[i].events;
                 short revents = 0;
+                if (fd < 0)
+                        continue;
                 if(events & (POLLIN|POLLPRI) && FD_ISSET(fd, &ifds))
                         revents |= POLLIN;
                 if(events & POLLOUT && FD_ISSET(fd, &ofds))
