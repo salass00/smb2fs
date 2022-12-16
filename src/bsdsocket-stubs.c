@@ -119,24 +119,31 @@ int fcntl(int sock, int cmd, ...)
 {
 	va_list ap;
 	int arg, nonblock;
+	int result;
 
 	va_start(ap, cmd);
 
 	switch (cmd)
 	{
 		case F_GETFL:
-			return 0;
+			result = 0;
+			break;
 
 		case F_SETFL:
 			arg = va_arg(ap, int);
 			nonblock = (arg & O_NONBLOCK) ? 1 : 0;
-			return ISocket->IoctlSocket(sock, FIONBIO, &nonblock);
+			result = ISocket->IoctlSocket(sock, FIONBIO, &nonblock);
+			break;
+
+		default:
+			errno = ENOSYS;
+			result = -1;
+			break;
 	}
 
 	va_end(ap);
 
-	errno = ENOSYS;
-	return -1;
+	return result;
 }
 
 int close(int sock)
