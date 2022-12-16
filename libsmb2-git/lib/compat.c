@@ -344,7 +344,7 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                 }
         } 
 
-        if(timo > 0) {
+        if(timo >= 0) {
                 toptr = &timeout;
                 timeout.tv_sec = (unsigned)timo / 1000;
                 timeout.tv_usec = ((unsigned)timo % 1000) * 1000;
