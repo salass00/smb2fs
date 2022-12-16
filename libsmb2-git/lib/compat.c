@@ -34,7 +34,7 @@ int smb2_getaddrinfo(const char *node, const char*service,
         struct hostent *host;
         int i, ip[4];
 
-        sin = malloc(sizeof(struct sockaddr_in));
+        sin = calloc(1, sizeof(struct sockaddr_in));
         sin->sin_len = sizeof(struct sockaddr_in);
         sin->sin_family=AF_INET;
 
