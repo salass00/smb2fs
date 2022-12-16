@@ -313,9 +313,10 @@ ssize_t readv(int fd, const struct iovec *iov, int iovcnt)
 #endif
 
 #ifdef NEED_POLL
+#include <proto/exec.h>
 int poll(struct pollfd *fds, unsigned int nfds, int timo)
 {
-        struct timeval timeout, *toptr;
+        struct timeval timeout, *toptr = 0;
         fd_set ifds, ofds, efds, *ip, *op;
         unsigned int i, maxfd = 0;
         int  rc;
@@ -343,18 +344,15 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                 }
         } 
 
-        if(timo < 0) {
-                toptr = 0;
-        } else {
+        if(timo > 0) {
                 toptr = &timeout;
                 timeout.tv_sec = (unsigned)timo / 1000;
                 timeout.tv_usec = ((unsigned)timo % 1000) * 1000;
         }
 
         rc = select(maxfd + 1, ip, op, &efds, toptr);
-
-        if(rc < 0)
-                return -1;
+        if(rc <= 0)
+                return rc;
 
         rc = 0;
         for (i = 0; i < nfds; ++i) {
