@@ -131,7 +131,9 @@ int fcntl(int sock, int cmd, ...)
 			break;
 
 		case F_SETFL:
-			arg = va_arg(ap, int);
+			/* Disabled use of non-blocking mode as it seems to be
+			 * what was causing the file system to misbehave. */
+			arg = 0; //va_arg(ap, int);
 			nonblock = (arg & O_NONBLOCK) ? 1 : 0;
 			result = ISocket->IoctlSocket(sock, FIONBIO, &nonblock);
 			break;
