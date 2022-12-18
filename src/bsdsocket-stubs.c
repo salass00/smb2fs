@@ -118,7 +118,8 @@ struct hostent *gethostbyname(const char *name)
 int fcntl(int sock, int cmd, ...)
 {
 	va_list ap;
-	int arg, nonblock;
+	int arg;
+	long nonblock;
 	int result;
 
 	va_start(ap, cmd);
