@@ -1,5 +1,5 @@
 (welcome)
-(set @default-dest "SYS:"
+(set @default-dest "SYS:")
 (copylib
 	(prompt "Copying smb2-handler")
 	(help @copylib-help)
