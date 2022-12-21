@@ -12,3 +12,5 @@ smb2-put-sync
 obj
 smb2-handler
 smb2-handler.debug
+# Ignore release archives
+*.lha
