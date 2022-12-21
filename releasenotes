@@ -2,3 +2,8 @@ smb2-handler 53.1 (20.12.2022)
 
 - First released version.
 
+
+smb2-handler 53.2 (d.m.2022)
+
+- Added USER and PASSWORD arguments.
+

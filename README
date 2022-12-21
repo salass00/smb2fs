@@ -19,10 +19,13 @@ Startup   = "<args>"
 
 Where <args> should follow the template:
 
-URL/A,VOLUME,NOPASSWORDREQ/S
+URL/A,USER,PASSWORD,VOLUME,NOPASSWORDREQ/S
 
 URL is the address of the samba share in the format:
 smb://[<domain;][<username>[:<password>]@]<host>[:<port>]/<share>/<path>
+
+USER and PASSWORD arguments if used override the username and password (if
+any) specified in the URL argument.
 
 VOLUME is the AmigaDOS volume name (if not specified it defaults to
 <server>-<share>).

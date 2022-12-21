@@ -37,11 +37,15 @@ struct fuse_context *_fuse_context_;
 
 static const char cmd_template[] = 
 	"URL/A,"
+	"USER,"
+	"PASSWORD,"
 	"VOLUME,"
 	"NOPASSWORDREQ/S";
 
 enum {
 	ARG_URL,
+	ARG_USER,
+	ARG_PASSWORD,
 	ARG_VOLUME,
 	ARG_NOPASSWORDREQ,
 	NUM_ARGS
@@ -139,6 +143,8 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 {
 	struct smb2fs_mount_data *md;
 	struct smb2_url          *url;
+	const char               *username;
+	const char               *password;
 
 	md = fuse_get_context()->private_data;
 
@@ -162,10 +168,22 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		return NULL;
 	}
 
-	if (url->password == NULL && !md->args[ARG_NOPASSWORDREQ])
+	username = url->user;
+	password = url->password;
+
+	if (md->args[ARG_USER])
 	{
-		url->password = request_password(url);
-		if (url->password == NULL)
+		username = (const char *)md->args[ARG_USER];
+	}
+	if (md->args[ARG_PASSWORD])
+	{
+		password = (const char *)md->args[ARG_PASSWORD];
+	}
+
+	if (password == NULL && !md->args[ARG_NOPASSWORDREQ])
+	{
+		url->password = password = request_password(url);
+		if (password == NULL)
 		{
 			smb2fs_destroy(fsd);
 			return NULL;
@@ -174,7 +192,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	smb2_set_security_mode(fsd->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
 
-	if (smb2_connect_share(fsd->smb2, url->server, url->share, url->user, url->password) < 0)
+	if (smb2_connect_share(fsd->smb2, url->server, url->share, username, password) < 0)
 	{
 		IExec->DebugPrintF("[smb2fs] smb2_connect_share failed. %s\n", smb2_get_error(fsd->smb2));
 		smb2_destroy_url(url);
