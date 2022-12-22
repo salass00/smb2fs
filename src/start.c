@@ -106,6 +106,9 @@ int main(int argc, char **argv)
 		IExec->DebugPrintF("[smb2fs] Handler won't be able to exit cleanly on dismount.\n");
 	}
 
+	/* Disable CTRL-C signal checking in libc. */
+	signal(SIGINT, SIG_IGN);
+
 	pkt = (struct DosPacket *)argv;
 
 	IFileSysBox = (struct FileSysBoxIFace *)open_interface("filesysbox.library", 54);
@@ -122,6 +125,7 @@ int main(int argc, char **argv)
 	}
 
 	if (ISocket->SocketBaseTags(
+		SBTM_SETVAL(SBTC_BREAKMASK),               0, /* Disable CTRL-C checking in WaitSelect() */
 		SBTM_SETVAL(SBTC_ERRNOLONGPTR),            __errno(),
 		SBTM_SETVAL(SBTC_HERRNOLONGPTR),           __h_errno(),
 		SBTM_SETVAL(SBTC_CAN_SHARE_LIBRARY_BASES), TRUE,

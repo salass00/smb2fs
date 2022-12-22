@@ -7,3 +7,5 @@ smb2-handler 53.2 (d.m.2022)
 
 - Added USER and PASSWORD arguments.
 
+- Disabled CTRL-C signal checking in libc and ISocket->WaitSelect().
+
