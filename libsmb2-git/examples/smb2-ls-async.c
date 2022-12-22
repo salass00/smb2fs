@@ -85,7 +85,7 @@ void od_cb(struct smb2_context *smb2, int status,
                         break;
                 }
                 t = (time_t)ent->st.smb2_mtime;
-                printf("%-20s %-9s %15"PRIu64" %s\n", ent->name, type, ent->st.smb2_size, asctime(localtime(&t)));
+                printf("%-20s %-9s %15"PRIu64" %s", ent->name, type, ent->st.smb2_size, asctime(localtime(&t)));
         }
 
         smb2_closedir(smb2, dir);
