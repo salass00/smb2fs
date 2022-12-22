@@ -12,8 +12,6 @@ INCLUDES = -I. -I./$(LIBSMB2DIR)/include
 DEFINES  = 
 WARNINGS = -Wall -Wwrite-strings -Werror
 
-DEFINES += -DUSE_BSDSOCKET_LIB
-
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -static
 LIBS    = 

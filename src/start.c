@@ -26,9 +26,7 @@
 static const TEXT USED verstag[] = VERSTAG;
 
 struct FileSysBoxIFace *IFileSysBox;
-#ifdef USE_BSDSOCKET_LIB
 struct SocketIFace     *ISocket;
-#endif
 
 struct Interface *open_interface(CONST_STRPTR name, int version)
 {
@@ -117,7 +115,6 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-#ifdef USE_BSDSOCKET_LIB
 	ISocket = (struct SocketIFace *)open_interface("bsdsocket.library", 4);
 	if (ISocket == NULL)
 	{
@@ -133,7 +130,6 @@ int main(int argc, char **argv)
 	{
 		goto cleanup;
 	}
-#endif
 
 	rc = smb2fs_main(pkt);
 
@@ -142,13 +138,11 @@ int main(int argc, char **argv)
 
 cleanup:
 
-#ifdef USE_BSDSOCKET_LIB
 	if (ISocket != NULL)
 	{
 		close_interface((struct Interface *)ISocket);
 		ISocket = NULL;
 	}
-#endif
 
 	if (IFileSysBox != NULL)
 	{

@@ -19,8 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifdef USE_BSDSOCKET_LIB
-
 #include <proto/bsdsocket.h>
 #include <sys/filio.h>
 #include <sys/socket.h>
@@ -158,6 +156,4 @@ struct protoent *getprotobyname(const char *name)
 {
 	return ISocket->getprotobyname((STRPTR)name);
 }
-
-#endif /* USE_BSDSOCKET_LIB */
 
