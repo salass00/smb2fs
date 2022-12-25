@@ -330,7 +330,7 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	sfs->f_favail  = smb2_sfs.f_favail;
 	sfs->f_fsid    = smb2_sfs.f_fsid;
 	sfs->f_namemax = smb2_sfs.f_namemax;
-	sfs->f_flag    = ST_CASE_SENSITIVE; /* FIXME: Use smb2_sfs.f_flag? */
+	sfs->f_flag    = 0; /* SMB protocol is case insensitive even if host fs is not */
 
 	if (sfs->f_namemax > 255)
 	{
