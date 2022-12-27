@@ -69,6 +69,10 @@
 #include "asprintf.h"
 #endif
 
+#if !defined(__amigaos4__) && defined(__AMIGA__)
+#define close closesocket
+#endif
+
 #include "compat.h"
 
 #include "sha.h"

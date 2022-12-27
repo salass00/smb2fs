@@ -86,11 +86,14 @@
 #endif
 #endif // __ANDROID__
 
-#ifdef __amigaos4__
+#if defined(__amigaos4__) || defined(__AMIGA__)
 #include <errno.h>
 #define getlogin_r(a,b) ENXIO
 #define srandom srand
 #define random rand
+#ifndef __amigaos4__
+#define close closesocket
+#endif
 #endif // __amigaos4__
 
 static int
@@ -443,7 +446,7 @@ void smb2_set_security_mode(struct smb2_context *smb2, uint16_t security_mode)
         smb2->security_mode = security_mode;
 }
 
-#if !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__)
+#if !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__) && !defined(__AMIGA__)
 static void smb2_set_password_from_file(struct smb2_context *smb2)
 {
         char *name = NULL;

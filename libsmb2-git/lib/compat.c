@@ -18,7 +18,7 @@
 
 #include "compat.h"
 
-#ifdef __amigaos4__
+#if defined(__amigaos4__) || defined(__AMIGA__)
 
 #define NEED_POLL
 

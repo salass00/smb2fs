@@ -23,6 +23,10 @@
 #define _GNU_SOURCE
 #endif
 
+#if !defined(__amigaos4__) && defined(__AMIGA__)
+#define close closesocket
+#endif
+
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
