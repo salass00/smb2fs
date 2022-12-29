@@ -15,7 +15,7 @@ DEFINES  =
 WARNINGS = -Wall -Wwrite-strings -Wno-pointer-sign -Werror
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
-LDFLAGS = -noixemul -nostartfiles
+LDFLAGS = -m68020 -noixemul -nostartfiles
 LIBS    = -ldebug
 
 #STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
