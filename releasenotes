@@ -9,3 +9,7 @@ smb2-handler 53.2 (d.m.2022)
 
 - Disabled CTRL-C signal checking in libc and ISocket->WaitSelect().
 
+- Merged latest fixes from the libsmb2 github repo:
+  - convert system time to little endian in NTLMSSP code.
+  - convert destination path directory separators in rename function.
+
