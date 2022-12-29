@@ -1114,11 +1114,7 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 
 	memset(&in_rda, 0, sizeof(in_rda));
 
-#ifdef __amigaos4__
 	in_rda.RDA_Source.CS_Buffer = argstr;
-#else
-	in_rda.RDA_Source.CS_Buffer = (UBYTE *)argstr;
-#endif
 	in_rda.RDA_Source.CS_Length = strlen(argstr);
 	in_rda.RDA_Flags            = RDAF_NOPROMPT;
 
@@ -1162,11 +1158,7 @@ int smb2fs_main(struct DosPacket *pkt)
 		goto cleanup;
 	}
 
-#ifdef __amigaos4__
 	md.rda = read_startup_args(cmd_template, md.args, startup);
-#else
-	md.rda = read_startup_args((CONST_STRPTR)cmd_template, md.args, startup);
-#endif
 	if (md.rda == NULL)
 	{
 #ifdef __amigaos4__
