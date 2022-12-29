@@ -146,12 +146,12 @@ static char *request_password(struct smb2_url *url)
 #endif
 					REQ_Type,        REQTYPE_STRING,
 					REQ_Image,       REQIMAGE_QUESTION,
-					REQ_TitleText,   (Tag)VERS,
-					REQ_BodyText,    (Tag)bodytext,
-					REQ_GadgetText,  (Tag)"_Ok|_Cancel",
+					REQ_TitleText,   VERS,
+					REQ_BodyText,    bodytext,
+					REQ_GadgetText,  "_Ok|_Cancel",
 					REQS_AllowEmpty, FALSE,
 					REQS_Invisible,  TRUE,
-					REQS_Buffer,     (Tag)buffer,
+					REQS_Buffer,     buffer,
 					REQS_MaxChars,   sizeof(buffer),
 					REQS_ReturnEnds, TRUE,
 					TAG_END);

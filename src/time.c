@@ -45,7 +45,7 @@ int gettimeofday(struct timeval *tvp, struct timezone *tzp)
 #else
 	FbxQueryFSTags(fs,
 #endif
-		FBXT_GMT_OFFSET, (Tag)&gmtoffset,
+		FBXT_GMT_OFFSET, &gmtoffset,
 		TAG_END);
 
 	if (tvp != NULL)
