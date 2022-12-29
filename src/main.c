@@ -781,6 +781,7 @@ static int smb2fs_unlink(const char *path)
 
 static int smb2fs_rmdir(const char *path)
 {
+	struct smb2dir *smb2dir;
 	int  rc;
 	char pathbuf[MAXPATHLEN];
 
@@ -795,6 +796,33 @@ static int smb2fs_rmdir(const char *path)
 	}
 
 	if (path[0] == '/') path++; /* Remove initial slash */
+
+	/* Make sure to return correct error for non-empty directory */
+	smb2dir = smb2_opendir(fsd->smb2, path);
+	if (smb2dir != NULL)
+	{
+		struct smb2dirent *ent;
+		BOOL notempty = FALSE;
+
+		while ((ent = smb2_readdir(fsd->smb2, smb2dir)) != NULL)
+		{
+			if (strcmp(ent->name, ".") != 0 && strcmp(ent->name, "..") != 0)
+			{
+				notempty = TRUE;
+				break;
+			}
+		}
+		smb2_closedir(fsd->smb2, smb2dir);
+
+		if (notempty)
+		{
+			return -ENOTEMPTY;
+		}
+	}
+	else
+	{
+		return -ENOENT;
+	}
 
 	rc = smb2_rmdir(fsd->smb2, path);
 	if (rc < 0)
