@@ -923,9 +923,11 @@ static struct fuse_operations smb2fs_ops =
 
 static void remove_double_quotes(char *argstr)
 {
-	char *start = argstr;
-	char *end   = strchr(start, '\0');
+	char *start, *end;
 	int   len;
+
+	start = argstr;
+	end   = start + strlen(start);
 
 	/* Strip leading white space characters */
 	while (isspace(start[0]))
