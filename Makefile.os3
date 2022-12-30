@@ -6,8 +6,8 @@ VERSION = 53
 
 LIBSMB2DIR = libsmb2-git
 
-OPTIMIZE = -O2 -m68020 -noixemul -fno-common -fomit-frame-pointer
-# -funsigned-char
+ARCH     = -m68020
+OPTIMIZE = -O2 $(ARCH) -noixemul -fno-common -fomit-frame-pointer
 # -save-temps
 DEBUG    = -g
 INCLUDES = -I. -I./$(LIBSMB2DIR)/include
@@ -15,7 +15,7 @@ DEFINES  =
 WARNINGS = -Wall -Wwrite-strings -Wno-pointer-sign -Wno-int-conversion -Werror
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
-LDFLAGS = -m68020 -noixemul -nostartfiles
+LDFLAGS = $(ARCH) -noixemul -nostartfiles
 LIBS    = -ldebug
 
 #STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
@@ -29,7 +29,7 @@ all: $(TARGET)
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f Makefile.os3 libsmb2.a
+	$(MAKE) -C $(LIBSMB2DIR) -f Makefile.os3 libsmb2.a ARCH=$(ARCH)
 
 obj/%.o: src/%.c
 	@mkdir -p obj

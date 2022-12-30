@@ -3,7 +3,8 @@ AR     = m68k-amigaos-ar
 RANLIB = m68k-amigaos-ranlib
 STRIP  = m68k-amigaos-strip
 
-OPTIMIZE = -O2 -m68020 -noixemul -fno-common -fomit-frame-pointer
+ARCH     = -m68020
+OPTIMIZE = -O2 $(ARCH) -noixemul -fno-common -fomit-frame-pointer
 DEBUG    = -g
 WARNINGS = -Wall -Werror
 INCLUDES = -I. -I./include -I./include/smb2
