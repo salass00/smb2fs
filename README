@@ -19,7 +19,7 @@ Startup   = "<args>"
 
 Where <args> should follow the template:
 
-URL/A,USER,PASSWORD,VOLUME,NOPASSWORDREQ/S
+URL/A,USER,PASSWORD,VOLUME,READONLY/S,NOPASSWORDREQ/S
 
 URL is the address of the samba share in the format:
 smb://[<domain;][<username>[:<password>]@]<host>[:<port>]/<share>/<path>
@@ -29,6 +29,8 @@ any) specified in the URL argument.
 
 VOLUME is the AmigaDOS volume name (if not specified it defaults to
 <server>-<share>).
+
+READONLY sets the filesystem to read only mode.
 
 NOPASSWORDREQ stops a password requester from being opened if no password is
 specified.

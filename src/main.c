@@ -40,6 +40,7 @@ static const char cmd_template[] =
 	"USER,"
 	"PASSWORD,"
 	"VOLUME,"
+	"READONLY/S,"
 	"NOPASSWORDREQ/S";
 
 enum {
@@ -47,6 +48,7 @@ enum {
 	ARG_USER,
 	ARG_PASSWORD,
 	ARG_VOLUME,
+	ARG_READONLY,
 	ARG_NOPASSWORDREQ,
 	NUM_ARGS
 };
@@ -151,6 +153,9 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	fsd = calloc(1, sizeof(*fsd));
 	if (fsd == NULL)
 		return NULL;
+
+	if (md->args[ARG_READONLY])
+		fsd->rdonly = TRUE;
 
 	fsd->smb2 = smb2_init_context();
 	if (fsd->smb2 == NULL)
@@ -332,6 +337,9 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	sfs->f_namemax = smb2_sfs.f_namemax;
 	sfs->f_flag    = 0; /* SMB protocol is case insensitive even if host fs is not */
 
+	if (fsd->rdonly)
+		sfs->f_flag |= ST_RDONLY;
+
 	if (sfs->f_namemax > 255)
 	{
 		sfs->f_namemax = 255;
@@ -430,6 +438,9 @@ static int smb2fs_mkdir(const char *path, mode_t mode)
 
 	if (fsd == NULL)
 		return -ENODEV;
+
+	if (fsd->rdonly)
+		return -EROFS;
 
 	if (fsd->rootdir != NULL)
 	{
@@ -538,7 +549,7 @@ static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	flags = O_RDWR;
+	flags = fsd->rdonly ? O_RDONLY : O_RDWR;
 
 	for (;;)
 	{
@@ -569,6 +580,9 @@ static int smb2fs_create(const char *path, mode_t mode, struct fuse_file_info *f
 
 	if (fsd == NULL)
 		return -ENODEV;
+
+	if (fsd->rdonly)
+		return -EROFS;
 
 	if (fsd->rootdir != NULL)
 	{
@@ -669,6 +683,9 @@ static int smb2fs_write(const char *path, const char *buffer, size_t size,
 	if (fsd == NULL)
 		return -ENODEV;
 
+	if (fsd->rdonly)
+		return -EROFS;
+
 	smb2fh = (struct smb2fh *)(size_t)fi->fh;
 	if (smb2fh == NULL)
 		return -EINVAL;
@@ -714,6 +731,9 @@ static int smb2fs_truncate(const char *path, fbx_off_t size)
 	if (fsd == NULL)
 		return -ENODEV;
 
+	if (fsd->rdonly)
+		return -EROFS;
+
 	if (fsd->rootdir != NULL)
 	{
 		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
@@ -740,6 +760,9 @@ static int smb2fs_ftruncate(const char *path, fbx_off_t size, struct fuse_file_i
 	if (fsd == NULL)
 		return -ENODEV;
 
+	if (fsd->rdonly)
+		return -EROFS;
+
 	smb2fh = (struct smb2fh *)(size_t)fi->fh;
 	if (smb2fh == NULL)
 		return -EINVAL;
@@ -760,6 +783,9 @@ static int smb2fs_unlink(const char *path)
 
 	if (fsd == NULL)
 		return -ENODEV;
+
+	if (fsd->rdonly)
+		return -EROFS;
 
 	if (fsd->rootdir != NULL)
 	{
@@ -787,6 +813,9 @@ static int smb2fs_rmdir(const char *path)
 
 	if (fsd == NULL)
 		return -ENODEV;
+
+	if (fsd->rdonly)
+		return -EROFS;
 
 	if (fsd->rootdir != NULL)
 	{
@@ -867,6 +896,9 @@ static int smb2fs_rename(const char *srcpath, const char *dstpath)
 
 	if (fsd == NULL)
 		return -ENODEV;
+
+	if (fsd->rdonly)
+		return -EROFS;
 
 	if (fsd->rootdir != NULL)
 	{

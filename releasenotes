@@ -19,3 +19,5 @@ smb2-handler 53.3 (d.m.2022)
 - Added a workaround for smb2_rmdir() not returning an error when trying to
   delete a non-empty directory.
 
+- Added support for READONLY switch.
+
