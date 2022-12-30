@@ -18,6 +18,7 @@ endif
 delete all force ${destdir}
 makedir all force ${destdir}/smb2fs/L
 
+copy clone AutoInstall ${destdir}
 copy clone Install ${destdir}/smb2fs
 copy clone README ${destdir}/smb2fs
 copy clone COPYING ${destdir}/smb2fs

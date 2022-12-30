@@ -1,0 +1,8 @@
+copystore smb2fs/L/smb2-handler L:
+
+if not exists SYS:Documentation/ReleaseNotes
+  makedir all SYS:Documentation/ReleaseNotes
+endif
+
+copy clone smb2fs/releasenotes SYS:Documentation/ReleaseNotes/smb2fs_relnotes
+
