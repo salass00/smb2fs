@@ -61,6 +61,7 @@ struct smb2fs_mount_data {
 
 struct smb2fs {
 	struct smb2_context *smb2;
+	BOOL                 rdonly:1;
 	BOOL                 connected:1;
 	char                *rootdir;
 };
