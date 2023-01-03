@@ -5,7 +5,7 @@ STRIP  = ppc-amigaos-strip
 
 OPTIMIZE = -O2
 DEBUG    = -gstabs
-WARNINGS = -Wall -Werror
+WARNINGS = -Wall -Werror -Wwrite-strings
 INCLUDES = -I. -I./include -I./include/smb2
 DEFINES  = -DHAVE_CONFIG_H "-D_U_=__attribute__((unused))"
 

@@ -2377,7 +2377,7 @@ readlink_cb_3(struct smb2_context *smb2, int status,
 {
         struct readlink_cb_data *cb_data = private_data;
         struct smb2_reparse_data_buffer *rp = cb_data->reparse;
-        char *target = "<unknown reparse point type>";
+        const char *target = "<unknown reparse point type>";
 
         if (rp) {
                 switch (rp->reparse_tag) {
@@ -2386,7 +2386,7 @@ readlink_cb_3(struct smb2_context *smb2, int status,
                 }
         }
         cb_data->cb(smb2, -nterror_to_errno(cb_data->status),
-                    target, cb_data->cb_data);
+                    (void *)target, cb_data->cb_data);
         smb2_free_data(smb2, rp);
         free(cb_data);
 }
