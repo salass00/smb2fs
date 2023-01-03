@@ -3,6 +3,7 @@
 # Ignore libsmb2 generated files
 smb2-cat-async
 smb2-cat-sync
+smb2-statvfs-sync
 smb2-ls-async
 smb2-ls-sync
 smb2-put-async

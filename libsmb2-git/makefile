@@ -29,6 +29,7 @@ SRCS = aes.c aes128ccm.c alloc.c dcerpc.c dcerpc-lsa.c dcerpc-srvsvc.c \
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
 EXAMPLES = smb2-cat-async smb2-cat-sync \
+           smb2-statvfs-sync \
            smb2-ls-async  smb2-ls-sync  \
            smb2-put-async smb2-put-sync
 
@@ -51,6 +52,10 @@ examples/smb2-cat-async: examples/smb2-cat-async.c libsmb2.a
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
 examples/smb2-cat-sync: examples/smb2-cat-sync.c libsmb2.a
+	$(CC) $(CFLAGS) -o $@.debug $^
+	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+
+examples/smb2-statvfs-sync: examples/smb2-statvfs-sync.c libsmb2.a
 	$(CC) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
