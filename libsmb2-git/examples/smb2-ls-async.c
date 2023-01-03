@@ -67,7 +67,7 @@ void od_cb(struct smb2_context *smb2, int status,
         }
 
         while ((ent = smb2_readdir(smb2, dir))) {
-                char *type;
+                const char *type;
                 time_t t;
 
                 switch (ent->st.smb2_type) {

@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	}
 
         while ((ent = smb2_readdir(smb2, dir))) {
-                char *type;
+                const char *type;
                 time_t t;
 
                 t = (time_t)ent->st.smb2_mtime;
