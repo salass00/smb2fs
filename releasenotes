@@ -21,3 +21,8 @@ smb2-handler 53.3 (d.m.2022)
 
 - Added support for READONLY switch.
 
+- If the reported f_blocks is larger than UINT32_MAX statfs() will reduce it
+  and compensate by making the block size larger (that way at least programs
+  that use the id_NumBlocks, id_NumBlocksUsed and id_BytesPerBlock fields to
+  calculate used and free percentages will report reasonable results).
+

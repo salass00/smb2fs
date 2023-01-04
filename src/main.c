@@ -304,6 +304,8 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	struct smb2_statvfs smb2_sfs;
 	int                 rc;
 	char                pathbuf[MAXPATHLEN];
+	uint32_t            frsize;
+	uint64_t            blocks, bfree, bavail;
 
 	if (fsd == NULL)
 		return -ENODEV;
@@ -326,11 +328,23 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 		return rc;
 	}
 
+	frsize = smb2_sfs.f_frsize;
+	blocks = smb2_sfs.f_blocks;
+	bfree  = smb2_sfs.f_bfree;
+	bavail = smb2_sfs.f_bavail;
+	while (blocks > UINT32_MAX)
+	{
+		frsize <<= 1;
+		blocks >>= 1;
+		bfree  >>= 1;
+		bavail >>= 1;
+	}
+
 	sfs->f_bsize   = smb2_sfs.f_bsize;
-	sfs->f_frsize  = smb2_sfs.f_frsize;
-	sfs->f_blocks  = smb2_sfs.f_blocks;
-	sfs->f_bfree   = smb2_sfs.f_bfree;
-	sfs->f_bavail  = smb2_sfs.f_bavail;
+	sfs->f_frsize  = frsize;
+	sfs->f_blocks  = blocks;
+	sfs->f_bfree   = bfree;
+	sfs->f_bavail  = bavail;
 	sfs->f_files   = smb2_sfs.f_files;
 	sfs->f_ffree   = smb2_sfs.f_ffree;
 	sfs->f_favail  = smb2_sfs.f_favail;
