@@ -332,7 +332,7 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	blocks = smb2_sfs.f_blocks;
 	bfree  = smb2_sfs.f_bfree;
 	bavail = smb2_sfs.f_bavail;
-	while (blocks > UINT32_MAX)
+	while (blocks > INT32_MAX)
 	{
 		frsize <<= 1;
 		blocks >>= 1;
