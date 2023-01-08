@@ -45,6 +45,7 @@
 #ifdef __amigaos4__
 #include <unistd.h>
 #else
+#include <stdint.h>
 #include <sys/param.h>
 #include <clib/debug_protos.h>
 #include <dos/filehandler.h>
