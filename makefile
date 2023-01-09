@@ -40,6 +40,12 @@ $(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
 	$(CC) $(LDFLAGS) -o $@.debug $^ $(LIBS)
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
+obj/smb2fs.o: CFLAGS += -fno-builtin
+
+smb2fs: obj/smb2fs.o
+	$(CC) $(LDFLAGS) -nostdlib -o $@.debug $^
+	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+
 .PHONY: clean
 clean:
 	$(MAKE) -C $(LIBSMB2DIR) clean
