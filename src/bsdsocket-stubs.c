@@ -27,6 +27,10 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
+#ifndef SSIZE_MAX
+#define SSIZE_MAX ((ssize_t)INT32_MAX)
+#endif
+
 int socket(int domain, int type, int protocol)
 {
 	return ISocket->socket(domain, type, protocol);
@@ -39,58 +43,104 @@ int connect(int sock, const struct sockaddr *addr, socklen_t addrlen)
 
 ssize_t readv(int sock, const struct iovec *iov, int iovcnt)
 {
-	int      i;
-	char    *ptr;
-	ssize_t  total, len, rc;
+	size_t total, left, copylen;
+	char *buffer, *bp;
+	ssize_t rc;
+	int i;
 
 	total = 0;
-
 	for (i = 0; i < iovcnt; i++)
 	{
-		ptr = iov[i].iov_base;
-		len = (ssize_t)iov[i].iov_len;
-		while (len > 0)
+		if (iov[i].iov_len > (SSIZE_MAX - total))
 		{
-			rc = ISocket->recv(sock, ptr, len, 0);
-			if (rc < 0)
-				return -1;
-			else if (rc == 0)
-				return total;
-			ptr   += rc;
-			total += rc;
-			len   -= rc;
+			errno = EINVAL;
+			return -1;
 		}
+		total += iov[i].iov_len;
 	}
 
-	return total;
+	buffer = malloc(total);
+	if (buffer == NULL)
+	{
+		errno = ENOMEM;
+		return -1;
+	}
+
+	rc = ISocket->recv(sock, buffer, total, 0);
+	if (rc < 0)
+	{
+		free(buffer);
+		return -1;
+	}
+
+	bp = buffer;
+	left = rc;
+	for (i = 0; i < iovcnt; i++)
+	{
+		copylen = iov[i].iov_len;
+		if (copylen > left)
+			copylen = left;
+
+		memcpy(iov[i].iov_base, bp, copylen);
+		bp += copylen;
+		left -= copylen;
+		if (left == 0)
+			break;
+	}
+
+	free(buffer);
+	return rc;
 }
 
 ssize_t writev(int sock, const struct iovec *iov, int iovcnt)
 {
-	int      i;
-	char    *ptr;
-	ssize_t  total, len, rc;
+	size_t total, left, copylen;
+	char *buffer, *bp;
+	ssize_t rc;
+	int i;
 
 	total = 0;
-
 	for (i = 0; i < iovcnt; i++)
 	{
-		ptr = iov[i].iov_base;
-		len = (ssize_t)iov[i].iov_len;
-		while (len > 0)
+		if (iov[i].iov_len > (SSIZE_MAX - total))
 		{
-			rc = ISocket->send(sock, (APTR)ptr, len, 0);
-			if (rc < 0)
-				return -1;
-			else if (rc == 0)
-				return total;
-			ptr   += rc;
-			total += rc;
-			len   -= rc;
+			errno = EINVAL;
+			return -1;
 		}
+		total += iov[i].iov_len;
 	}
 
-	return total;
+	buffer = malloc(total);
+	if (buffer == NULL)
+	{
+		errno = ENOMEM;
+		return -1;
+	}
+
+	bp = buffer;
+	left = total;
+	for (i = 0; i < iovcnt; i++)
+	{
+		copylen = iov[i].iov_len;
+		if (copylen > left)
+			copylen = left;
+
+		memcpy(bp, iov[i].iov_base, copylen);
+		bp += copylen;
+		left -= copylen;
+		if (left == 0)
+			break;
+	}
+
+	rc = ISocket->send(sock, buffer, total, 0);
+	if (rc < 0)
+	{
+		free(buffer);
+		return -1;
+	}
+
+	free(buffer);
+	return rc;
 }
 
 int setsockopt(int sock, int level, int optname, const void *optval, socklen_t optlen)

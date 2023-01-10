@@ -26,3 +26,9 @@ smb2-handler 53.3 (8.1.2023)
   that use the id_NumBlocks, id_NumBlocksUsed and id_BytesPerBlock fields to
   calculate used and free percentages will report reasonable results).
 
+
+smb2-handler 53.4 (d.m.2023)
+
+- Rewrote the readv() and writev() implementations according to:
+  https://github.com/sahlberg/libsmb2/issues/242
+
