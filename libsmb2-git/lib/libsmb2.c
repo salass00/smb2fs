@@ -70,7 +70,10 @@
 #endif
 
 #if !defined(__amigaos4__) && defined(__AMIGA__)
-#define close closesocket
+#include <proto/bsdsocket.h>
+#undef getaddrinfo
+#undef freeaddrinfo
+#define close CloseSocket
 #endif
 
 #include "compat.h"

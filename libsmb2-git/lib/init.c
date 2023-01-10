@@ -92,7 +92,8 @@
 #define srandom srand
 #define random rand
 #ifndef __amigaos4__
-#define close closesocket
+#include <proto/bsdsocket.h>
+#define close CloseSocket
 #endif
 #endif // __amigaos4__
 

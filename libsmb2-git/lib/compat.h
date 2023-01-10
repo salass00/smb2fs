@@ -243,7 +243,6 @@ void smb2_freeaddrinfo(struct addrinfo *res);
 #ifndef __amigaos4__
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
-int closesocket(int fd);
 #endif
 
 #if !defined(HAVE_SOCKADDR_STORAGE)
