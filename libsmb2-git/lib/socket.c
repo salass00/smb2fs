@@ -23,6 +23,15 @@
 #define _GNU_SOURCE
 #endif
 
+#if !defined(__amigaos4__) && defined(__AMIGA__)
+#include <sys/filio.h>
+#include <proto/bsdsocket.h>
+#undef getaddrinfo
+#undef freeaddrinfo
+#undef HAVE_UNISTD_H
+#define close CloseSocket
+#endif
+
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
@@ -824,6 +833,9 @@ set_nonblocking(t_socket fd)
 #if defined(WIN32)
         unsigned long opt = 1;
         ioctlsocket(fd, FIONBIO, &opt);
+#elif defined(__AMIGA__) && !defined(__amigaos4__)
+        unsigned long opt = 0; //1;
+        IoctlSocket(fd, FIONBIO, &opt);
 #else
         unsigned v;
         v = fcntl(fd, F_GETFL, 0);

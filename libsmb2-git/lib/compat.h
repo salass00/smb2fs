@@ -208,7 +208,7 @@ struct sockaddr_storage {
 
 #endif
 
-#ifdef __amigaos4__
+#if defined(__amigaos4__) || defined(__AMIGA__)
 
 #include <errno.h>
 #include <sys/time.h>
@@ -239,6 +239,11 @@ int smb2_getaddrinfo(const char *node, const char*service,
                 const struct addrinfo *hints,
                 struct addrinfo **res);
 void smb2_freeaddrinfo(struct addrinfo *res);
+
+#ifndef __amigaos4__
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
+#endif
 
 #if !defined(HAVE_SOCKADDR_STORAGE)
 /*

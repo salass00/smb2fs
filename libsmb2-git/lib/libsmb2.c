@@ -69,6 +69,13 @@
 #include "asprintf.h"
 #endif
 
+#if !defined(__amigaos4__) && defined(__AMIGA__)
+#include <proto/bsdsocket.h>
+#undef getaddrinfo
+#undef freeaddrinfo
+#define close CloseSocket
+#endif
+
 #include "compat.h"
 
 #include "sha.h"

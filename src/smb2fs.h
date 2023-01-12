@@ -29,8 +29,10 @@
 
 #define ID_SMB2_DISK (0x534D4202UL)
 
+#ifdef __amigaos4__
 struct Interface *open_interface(CONST_STRPTR name, int version);
 void close_interface(struct Interface *interface);
+#endif
 
 int smb2fs_main(struct DosPacket *pkt);
 

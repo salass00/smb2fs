@@ -174,7 +174,7 @@
 #   error platform not supported
 # endif
 
-#elif defined(__amigaos4__)
+#elif defined(__amigaos4__) || defined(__AMIGA__)
 
 # if defined(__NEWLIB__)
 #   include <machine/endian.h>

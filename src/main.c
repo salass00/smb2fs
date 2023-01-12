@@ -23,13 +23,36 @@
 
 #include <proto/intuition.h>
 #include <classes/requester.h>
+#ifndef __amigaos4__
+#include <proto/requester.h>
+#include <clib/alib_protos.h>
+#ifndef REQ_Image
+#define REQ_Image (REQ_Dummy+7)
+#endif
+#ifndef REQIMAGE_QUESTION
+#define REQIMAGE_QUESTION (4)
+#endif
+#ifndef REQS_ReturnEnds
+#define REQS_ReturnEnds (REQS_Dummy+8)
+#endif
+#endif
 
 #include <smb2/smb2.h>
 #include <smb2/libsmb2.h>
 
 #include <ctype.h>
 #include <stdio.h>
+#ifdef __amigaos4__
 #include <unistd.h>
+#else
+#include <stdint.h>
+#include <sys/param.h>
+#include <clib/debug_protos.h>
+#include <dos/filehandler.h>
+#define ZERO 0
+size_t strlcpy(char *dst, const char *src, size_t size);
+size_t strlcat(char *dst, const char *src, size_t size);
+#endif
 
 #include "smb2-handler_rev.h"
 
@@ -70,21 +93,43 @@ struct smb2fs *fsd;
 
 static char *request_password(struct smb2_url *url)
 {
+#ifdef __amigaos4__
 	struct IntuitionIFace *IIntuition;
+#else
+	struct IntuitionBase *IntuitionBase;
+#endif
 	char                  *password = NULL;
 
+#ifdef __amigaos4__
 	IIntuition = (struct IntuitionIFace *)open_interface("intuition.library", 53);
 	if (IIntuition != NULL)
+#else
+	IntuitionBase = (struct IntuitionBase *)OpenLibrary((STRPTR)"intuition.library", 39);
+	if (IntuitionBase != NULL)
+#endif
 	{
+#ifdef __amigaos4__
 		struct ClassLibrary *RequesterBase;
 		Class               *RequesterClass;
+#else
+		struct Library      *RequesterBase;
+#endif
 
+
+#ifdef __amigaos4__
 		RequesterBase = IIntuition->OpenClass("requester.class", 53, &RequesterClass);
+#else
+		RequesterBase = OpenLibrary("requester.class", 42);
+#endif
 		if (RequesterBase != NULL)
 		{
 			struct Screen *screen;
 
+#ifdef __amigaos4__
 			screen = IIntuition->LockPubScreen(NULL);
+#else
+			screen = LockPubScreen(NULL);
+#endif
 			if (screen != NULL)
 			{
 				TEXT    bodytext[256];
@@ -95,7 +140,11 @@ static char *request_password(struct smb2_url *url)
 
 				snprintf(bodytext, sizeof(bodytext), "Enter password for %s@%s", url->user, url->server);
 
+#ifdef __amigaos4__
 				reqobj = IIntuition->NewObject(RequesterClass, NULL,
+#else
+				reqobj = NewObject(REQUESTER_GetClass(), NULL,
+#endif
 					REQ_Type,        REQTYPE_STRING,
 					REQ_Image,       REQIMAGE_QUESTION,
 					REQ_TitleText,   VERS,
@@ -118,23 +167,43 @@ static char *request_password(struct smb2_url *url)
 					reqmsg.or_Window = NULL;
 					reqmsg.or_Screen = screen;
 
+#ifdef __amigaos4__
 					result = IIntuition->IDoMethodA(reqobj, (Msg)&reqmsg);
+#else
+					result = DoMethodA(reqobj, (Msg)&reqmsg);
+#endif
 
 					if (result && buffer[0] != '\0')
 					{
 						password = strdup(buffer);
 					}
 
+#ifdef __amigaos4__
 					IIntuition->DisposeObject(reqobj);
+#else
+					DisposeObject(reqobj);
+#endif
 				}
 
+#ifdef __amigaos4__
 				IIntuition->UnlockPubScreen(NULL, screen);
+#else
+				UnlockPubScreen(NULL, screen);
+#endif
 			}
 
+#ifdef __amigaos4__
 			IIntuition->CloseClass(RequesterBase);
+#else
+			CloseLibrary(RequesterBase);
+#endif
 		}
 
+#ifdef __amigaos4__
 		close_interface((struct Interface *)IIntuition);
+#else
+		CloseLibrary((struct Library *)IntuitionBase);
+#endif
 	}
 
 	return password;
@@ -161,7 +230,11 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	fsd->smb2 = smb2_init_context();
 	if (fsd->smb2 == NULL)
 	{
+#ifdef __amigaos4__
 		IExec->DebugPrintF("[smb2fs] Failed to init context\n");
+#else
+		KPutS((STRPTR)"[smb2fs] Failed to init context\n");
+#endif
 		smb2fs_destroy(fsd);
 		return NULL;
 	}
@@ -169,7 +242,11 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	url = smb2_parse_url(fsd->smb2, (char *)md->args[ARG_URL]);
 	if (url == NULL)
 	{
+#ifdef __amigaos4__
 		IExec->DebugPrintF("[smb2fs] Failed to parse url: %s\n", md->args[ARG_URL]);
+#else
+		KPrintF((STRPTR)"[smb2fs] Failed to parse url: %s\n", md->args[ARG_URL]);
+#endif
 		smb2fs_destroy(fsd);
 		return NULL;
 	}
@@ -200,7 +277,11 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	if (smb2_connect_share(fsd->smb2, url->server, url->share, username, password) < 0)
 	{
+#ifdef __amigaos4__
 		IExec->DebugPrintF("[smb2fs] smb2_connect_share failed. %s\n", smb2_get_error(fsd->smb2));
+#else
+		KPrintF((STRPTR)"[smb2fs] smb2_connect_share failed. %s\n", smb2_get_error(fsd->smb2));
+#endif
 		smb2_destroy_url(url);
 		smb2fs_destroy(fsd);
 		return NULL;
@@ -219,7 +300,11 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 		do
 		{
+#ifdef __amigaos4__
 			pos = IDOS->SplitName(patharg, '/', namebuf, pos, sizeof(namebuf));
+#else
+			pos = SplitName((STRPTR)patharg, '/', (STRPTR)namebuf, pos, sizeof(namebuf));
+#endif
 
 			if (namebuf[0] == '\0')
 				continue;
@@ -1014,7 +1099,11 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 	argstr = malloc(strlen(startup) + 2);
 	if (argstr == NULL)
 	{
+#ifdef __amigaos4__
 		IDOS->SetIoErr(ERROR_NO_FREE_STORE);
+#else
+		SetIoErr(ERROR_NO_FREE_STORE);
+#endif
 		return NULL;
 	}
 
@@ -1030,7 +1119,11 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 	in_rda.RDA_Source.CS_Length = strlen(argstr);
 	in_rda.RDA_Flags            = RDAF_NOPROMPT;
 
+#ifdef __amigaos4__
 	rda = IDOS->ReadArgs(template, args, &in_rda);
+#else
+	rda = ReadArgs((STRPTR)template, args, &in_rda);
+#endif
 
 	free(argstr);
 
@@ -1043,7 +1136,9 @@ int smb2fs_main(struct DosPacket *pkt)
 	struct DeviceNode        *devnode;
 	const char               *device;
 	const char               *startup;
+#ifdef __amigaos4__
 	uint32                    fsflags;
+#endif
 	struct FbxFS             *fs = NULL;
 	int                       error;
 	int                       rc = RETURN_ERROR;
@@ -1067,10 +1162,15 @@ int smb2fs_main(struct DosPacket *pkt)
 	md.rda = read_startup_args(cmd_template, md.args, startup);
 	if (md.rda == NULL)
 	{
+#ifdef __amigaos4__
 		error = IDOS->IoErr();
+#else
+		error = IoErr();
+#endif
 		goto cleanup;
 	}
 
+#ifdef __amigaos4__
 	fsflags = FBXF_ENABLE_UTF8_NAMES|FBXF_ENABLE_32BIT_UIDS|FBXF_USE_FILL_DIR_STAT;
 
 	fs = IFileSysBox->FbxSetupFSTags(pkt->dp_Link, &smb2fs_ops, sizeof(smb2fs_ops), &md,
@@ -1078,13 +1178,27 @@ int smb2fs_main(struct DosPacket *pkt)
 		FBXT_DOSTYPE,     ID_SMB2_DISK,
 		FBXT_GET_CONTEXT, &_fuse_context_,
 		TAG_END);
+#else
+	struct TagItem fs_tags[] = {
+		{ FBXT_FSFLAGS,     FBXF_ENABLE_UTF8_NAMES|FBXF_USE_FILL_DIR_STAT },
+		{ FBXT_DOSTYPE,     ID_SMB2_DISK                                            },
+		{ FBXT_GET_CONTEXT, (IPTR)&_fuse_context_                                   },
+		{ TAG_END,          0                                                       }
+	};
+
+	fs = FbxSetupFS(pkt->dp_Link, fs_tags, &smb2fs_ops, sizeof(smb2fs_ops), &md);
+#endif
 
 	/* Set to NULL so we don't reply the message twice */
 	pkt = NULL;
 
 	if (fs != NULL)
 	{
+#ifdef __amigaos4__
 		IFileSysBox->FbxEventLoop(fs);
+#else
+		FbxEventLoop(fs);
+#endif
 
 		rc = RETURN_OK;
 	}
@@ -1093,19 +1207,31 @@ cleanup:
 
 	if (fs != NULL)
 	{
+#ifdef __amigaos4__
 		IFileSysBox->FbxCleanupFS(fs);
+#else
+		FbxCleanupFS(fs);
+#endif
 		fs = NULL;
 	}
 
 	if (pkt != NULL)
 	{
+#ifdef __amigaos4__
 		IDOS->ReplyPkt(pkt, DOSFALSE, error);
+#else
+		ReplyPkt(pkt, DOSFALSE, error);
+#endif
 		pkt = NULL;
 	}
 
 	if (md.rda != NULL)
 	{
+#ifdef __amigaos4__
 		IDOS->FreeArgs(md.rda);
+#else
+		FreeArgs(md.rda);
+#endif
 		md.rda = NULL;
 	}
 
