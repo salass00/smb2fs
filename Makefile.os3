@@ -20,7 +20,7 @@ LIBS    = -ldebug
 
 #STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start_os3.c main.c time.c strlcpy.c strdup.c malloc.c
+SRCS = start_os3.c main.c reaction-password-req.c time.c strlcpy.c strdup.c malloc.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 

@@ -22,25 +22,10 @@
 #define __USE_INLINE__
 
 #include "smb2fs.h"
-#include "smb2-handler_rev.h"
 
 #include <dos/filehandler.h>
-#include <proto/intuition.h>
-#include <classes/requester.h>
-
 #ifndef __amigaos4__
-#include <proto/requester.h>
-#include <clib/alib_protos.h>
 #include <clib/debug_protos.h>
-#ifndef REQ_Image
-#define REQ_Image (REQ_Dummy+7)
-#endif
-#ifndef REQIMAGE_QUESTION
-#define REQIMAGE_QUESTION (4)
-#endif
-#ifndef REQS_ReturnEnds
-#define REQS_ReturnEnds (REQS_Dummy+8)
-#endif
 #endif
 
 #include <smb2/smb2.h>
@@ -96,102 +81,6 @@ struct smb2fs {
 };
 
 struct smb2fs *fsd;
-
-static char *request_password(struct smb2_url *url)
-{
-#ifdef __amigaos4__
-	struct IntuitionIFace *IIntuition;
-#else
-	struct IntuitionBase *IntuitionBase;
-#endif
-	char                  *password = NULL;
-
-#ifdef __amigaos4__
-	IIntuition = (struct IntuitionIFace *)open_interface("intuition.library", 53);
-	if (IIntuition != NULL)
-#else
-	IntuitionBase = (struct IntuitionBase *)OpenLibrary((STRPTR)"intuition.library", 39);
-	if (IntuitionBase != NULL)
-#endif
-	{
-		struct Library *RequesterBase;
-		Class          *RequesterClass;
-
-#ifdef __amigaos4__
-		RequesterBase = (struct Library *)OpenClass("requester.class", 53, &RequesterClass);
-#else
-		RequesterBase = OpenLibrary("requester.class", 42);
-#endif
-		if (RequesterBase != NULL)
-		{
-			struct Screen *screen;
-#ifndef __amigaos4__
-			RequesterClass = REQUESTER_GetClass();
-#endif
-
-			screen = LockPubScreen(NULL);
-			if (screen != NULL)
-			{
-				TEXT    bodytext[256];
-				TEXT    buffer[256];
-				Object *reqobj;
-
-				buffer[0] = '\0';
-
-				snprintf(bodytext, sizeof(bodytext), "Enter password for %s@%s", url->user, url->server);
-
-				reqobj = NewObject(RequesterClass, NULL,
-					REQ_Type,        REQTYPE_STRING,
-					REQ_Image,       REQIMAGE_QUESTION,
-					REQ_TitleText,   VERS,
-					REQ_BodyText,    bodytext,
-					REQ_GadgetText,  "_Ok|_Cancel",
-					REQS_AllowEmpty, FALSE,
-					REQS_Invisible,  TRUE,
-					REQS_Buffer,     buffer,
-					REQS_MaxChars,   sizeof(buffer),
-					REQS_ReturnEnds, TRUE,
-					TAG_END);
-
-				if (reqobj != NULL)
-				{
-					struct orRequest reqmsg;
-					LONG             result;
-
-					reqmsg.MethodID  = RM_OPENREQ;
-					reqmsg.or_Attrs  = NULL;
-					reqmsg.or_Window = NULL;
-					reqmsg.or_Screen = screen;
-
-					result = DoMethodA(reqobj, (Msg)&reqmsg);
-
-					if (result && buffer[0] != '\0')
-					{
-						password = strdup(buffer);
-					}
-
-					DisposeObject(reqobj);
-				}
-
-				UnlockPubScreen(NULL, screen);
-			}
-
-#ifdef __amigaos4__
-			CloseClass((struct ClassLibrary *)RequesterBase);
-#else
-			CloseLibrary(RequesterBase);
-#endif
-		}
-
-#ifdef __amigaos4__
-		close_interface((struct Interface *)IIntuition);
-#else
-		CloseLibrary((struct Library *)IntuitionBase);
-#endif
-	}
-
-	return password;
-}
 
 static void smb2fs_destroy(void *initret);
 
@@ -249,7 +138,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	if (password == NULL && !md->args[ARG_NOPASSWORDREQ])
 	{
-		url->password = password = request_password(url);
+		url->password = password = request_password(url->user, url->server);
 		if (password == NULL)
 		{
 			smb2fs_destroy(fsd);

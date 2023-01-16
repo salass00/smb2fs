@@ -33,6 +33,8 @@ struct Interface *open_interface(CONST_STRPTR name, int version);
 void close_interface(struct Interface *interface);
 #endif
 
+char *request_password(const char *user, const char *server);
+
 int smb2fs_main(struct DosPacket *pkt);
 
 #ifndef __amigaos4__
