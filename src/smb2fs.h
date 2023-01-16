@@ -25,7 +25,6 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/filesysbox.h>
-#include <proto/bsdsocket.h>
 
 #define ID_SMB2_DISK (0x534D4202UL)
 
@@ -35,5 +34,10 @@ void close_interface(struct Interface *interface);
 #endif
 
 int smb2fs_main(struct DosPacket *pkt);
+
+#ifndef __amigaos4__
+size_t strlcpy(char *dst, const char *src, size_t size);
+size_t strlcat(char *dst, const char *src, size_t size);
+#endif
 
 #endif /* SMB2FS_H */

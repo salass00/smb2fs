@@ -20,8 +20,9 @@
  */
 
 #include "smb2fs.h"
-
 #include "smb2-handler_rev.h"
+
+#include <proto/bsdsocket.h>
 
 static const TEXT USED verstag[] = VERSTAG;
 
