@@ -77,7 +77,11 @@ enum {
 struct smb2fs_mount_data {
 	char          *device;
 	struct RDArgs *rda;
+#ifdef __AROS__
 	IPTR           args[NUM_ARGS];
+#else
+	LONG           args[NUM_ARGS];
+#endif
 };
 
 struct smb2fs {
@@ -969,7 +973,11 @@ static void remove_double_quotes(char *argstr)
 	argstr[len] = '\0';
 }
 
+#ifdef __AROS__
 static struct RDArgs *read_startup_args(CONST_STRPTR template, IPTR *args, const char *startup)
+#else
+static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const char *startup)
+#endif
 {
 	char          *argstr;
 	struct RDArgs *rda, in_rda;
