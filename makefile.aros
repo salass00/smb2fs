@@ -14,9 +14,9 @@ WARNINGS = -Wall -Werror
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -nostartfiles
-LIBS    = -ldebug
+LIBS    = -larosc -ldebug
 
-SRCS = start_os3.c main.c time.c
+SRCS = start_os3.c main.c time.c malloc.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
