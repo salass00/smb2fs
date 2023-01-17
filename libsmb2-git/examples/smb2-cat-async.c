@@ -14,7 +14,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #define _GNU_SOURCE
 
 #include <fcntl.h>
-#ifndef __amigaos4__
+#if !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
 #include <poll.h>
 #endif
 #include <stdint.h>
@@ -29,7 +29,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "libsmb2.h"
 #include "libsmb2-raw.h"
 
-#ifdef __amigaos4__
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 struct pollfd {
         int fd;
         short events;

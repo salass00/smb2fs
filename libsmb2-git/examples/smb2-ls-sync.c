@@ -24,6 +24,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "libsmb2.h"
 #include "libsmb2-raw.h"
 
+#ifdef __AROS__
+#include "asprintf.h"
+#endif
+
 int usage(void)
 {
         fprintf(stderr, "Usage:\n"
