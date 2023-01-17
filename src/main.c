@@ -1017,8 +1017,13 @@ int smb2fs_main(struct DosPacket *pkt)
 
 	devnode = (struct DeviceNode *)BADDR(pkt->dp_Arg3);
 
+#ifdef __AROS__
+	device  = (const char *)AROS_BSTR_ADDR(devnode->dn_Name);
+	startup = (const char *)AROS_BSTR_ADDR(devnode->dn_Startup);
+#else
 	device  = (const char *)BADDR(devnode->dn_Name) + 1;
 	startup = (const char *)BADDR(devnode->dn_Startup) + 1;
+#endif
 
 	devnode->dn_Startup = ZERO;
 
