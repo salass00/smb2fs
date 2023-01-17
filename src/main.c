@@ -47,6 +47,13 @@
 #define ZERO MKBADDR(NULL)
 #endif
 
+#ifdef __AROS__
+#define isspace(c) smb2_isspace(c)
+static inline int smb2_isspace(int c) {
+	return (c == ' ' || (c >= '\t' && c <= '\r'));
+}
+#endif
+
 struct fuse_context *_fuse_context_;
 
 static const char cmd_template[] = 
