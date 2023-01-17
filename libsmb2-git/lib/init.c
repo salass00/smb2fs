@@ -89,8 +89,10 @@
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 #include <errno.h>
 #define getlogin_r(a,b) ENXIO
+#ifndef __AROS__
 #define srandom srand
 #define random rand
+#endif
 #ifndef __amigaos4__
 #include <proto/bsdsocket.h>
 #define close CloseSocket
