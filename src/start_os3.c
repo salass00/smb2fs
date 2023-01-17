@@ -30,12 +30,18 @@
 struct ExecBase *SysBase;
 struct DosLibrary *DOSBase;
 struct UtilityBase *UtilityBase;
+#ifdef __AROS__
+struct Library *aroscbase;
+#endif
 struct Library *FileSysBoxBase;
 struct Library *SocketBase;
 
 static const char vstring[];
 static const char dosName[];
 static const char utilityName[];
+#ifdef __AROS__
+static const char aroscName[];
+#endif
 static const char filesysboxName[];
 static const char bsdsocketName[];
 
@@ -67,6 +73,14 @@ int startup(void)
 	{
 		goto cleanup;
 	}
+
+#ifdef __AROS__
+	aroscbase = OpenLibrary((STRPTR)aroscName, 41);
+	if (aroscbase == NULL)
+	{
+		goto cleanup;
+	}
+#endif
 
 	me = (struct Process *)FindTask(NULL);
 	if (me->pr_CLI != 0)
@@ -137,6 +151,14 @@ cleanup:
 		pkt = NULL;
 	}
 
+#ifdef __AROS__
+	if (aroscbase != NULL)
+	{
+		CloseLibrary(aroscbase);
+		aroscbase = NULL;
+	}
+#endif
+
 	if (UtilityBase != NULL)
 	{
 		CloseLibrary((struct Library *)UtilityBase);
@@ -161,5 +183,8 @@ static const TEXT USED verstag[] = VERSTAG;
 static const char vstring[] = VSTRING;
 static const char dosName[] = "dos.library";
 static const char utilityName[] = "utility.library";
+#ifdef __AROS__
+static const char aroscName[] = "arosc.library";
+#endif
 static const char filesysboxName[] = "filesysbox.library";
 static const char bsdsocketName[] = "bsdsocket.library";
