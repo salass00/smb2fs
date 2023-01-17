@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define __USE_INLINE__
+
 #include <proto/filesysbox.h>
 #include <time.h>
 #ifndef __amigaos4__
@@ -33,25 +35,17 @@ extern struct fuse_context *_fuse_context_;
 int gettimeofday(struct timeval *tvp, struct timezone *tzp)
 {
 	struct FbxFS *fs = fuse_get_context()->fuse;
-#ifdef __amigaos4__
-	int32 gmtoffset = 0;
-#else
 	LONG gmtoffset = 0;
-#endif
 
 	/* Get difference to GMT time in minutes */
-#ifdef __amigaos4__
-	IFileSysBox->FbxQueryFSTags(fs,
-#else
 	FbxQueryFSTags(fs,
-#endif
-		FBXT_GMT_OFFSET, &gmtoffset,
+		FBXT_GMT_OFFSET, (Tag)&gmtoffset,
 		TAG_END);
 
 	if (tvp != NULL)
 	{
 #ifdef __amigaos4__
-		IFileSysBox->FbxGetSysTime(fs, (struct TimeVal *)tvp);
+		FbxGetSysTime(fs, (struct TimeVal *)tvp);
 #else
 		FbxGetSysTime(fs, tvp);
 #endif
