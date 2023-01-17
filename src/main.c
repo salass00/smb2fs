@@ -597,7 +597,7 @@ static int smb2fs_read(const char *path, char *buffer, size_t size,
 	struct smb2fh *smb2fh;
 	int64_t        new_offset;
 	size_t         max_read_size, count;
-	int            rc;
+	int            rc = 0;
 	int            result;
 
 	if (fsd == NULL)
@@ -646,7 +646,7 @@ static int smb2fs_write(const char *path, const char *buffer, size_t size,
 	struct smb2fh *smb2fh;
 	int64_t        new_offset;
 	size_t         max_write_size, count;
-	int            rc;
+	int            rc = 0;
 	int            result;
 
 	if (fsd == NULL)
