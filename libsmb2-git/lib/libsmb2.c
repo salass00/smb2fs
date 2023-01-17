@@ -65,11 +65,11 @@
 #include <sys/socket.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__AROS__)
 #include "asprintf.h"
 #endif
 
-#if !defined(__amigaos4__) && defined(__AMIGA__)
+#if !defined(__amigaos4__) && (defined(__AMIGA__) || defined(__AROS__))
 #include <proto/bsdsocket.h>
 #undef getaddrinfo
 #undef freeaddrinfo

@@ -1,0 +1,51 @@
+CC    = i386-aros-gcc
+STRIP = i386-aros-strip
+
+TARGET  = smb2-handler
+VERSION = 53
+
+LIBSMB2DIR = libsmb2-git
+
+OPTIMIZE = -O2 -fno-common -fomit-frame-pointer
+DEBUG    = -g
+INCLUDES = -I. -I./$(LIBSMB2DIR)/include
+DEFINES  = 
+WARNINGS = -Wall -Werror
+
+CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
+LDFLAGS = -nostartfiles
+LIBS    = -ldebug
+
+SRCS = start_os3.c main.c time.c
+
+OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+
+.PHONY: all
+all: $(TARGET)
+
+.PHONY: build-libsmb2
+build-libsmb2:
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros libsmb2.a
+
+obj/%.o: src/%.c
+	@mkdir -p obj
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(LIBSMB2DIR)/libsmb2.a: build-libsmb2
+	@true
+
+$(TARGET).debug: $(OBJS) $(LIBSMB2DIR)/libsmb2.a
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+$(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
+	$(CC) -s $(LDFLAGS) -o $@ $^ $(LIBS)
+
+.PHONY: clean
+clean:
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros clean
+	rm -rf $(TARGET) $(TARGET).debug obj
+
+.PHONY: revision
+revision:
+	bumprev -e si $(VERSION) $(TARGET)
+

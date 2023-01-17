@@ -27,12 +27,12 @@
 #ifndef __amigaos4__
 #include <clib/debug_protos.h>
 #endif
+#include <stdint.h>
 
 #include <smb2/smb2.h>
 #include <smb2/libsmb2.h>
 
 #include <ctype.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,7 +70,7 @@ enum {
 struct smb2fs_mount_data {
 	char          *device;
 	struct RDArgs *rda;
-	LONG           args[NUM_ARGS];
+	IPTR           args[NUM_ARGS];
 };
 
 struct smb2fs {
@@ -173,7 +173,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 		do
 		{
-			pos = SplitName(patharg, '/', namebuf, pos, sizeof(namebuf));
+			pos = SplitName((CONST_STRPTR)patharg, '/', (STRPTR)namebuf, pos, sizeof(namebuf));
 
 			if (namebuf[0] == '\0')
 				continue;
@@ -960,7 +960,7 @@ static void remove_double_quotes(char *argstr)
 	argstr[len] = '\0';
 }
 
-static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const char *startup)
+static struct RDArgs *read_startup_args(CONST_STRPTR template, IPTR *args, const char *startup)
 {
 	char          *argstr;
 	struct RDArgs *rda, in_rda;
@@ -980,7 +980,7 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 
 	memset(&in_rda, 0, sizeof(in_rda));
 
-	in_rda.RDA_Source.CS_Buffer = argstr;
+	in_rda.RDA_Source.CS_Buffer = (STRPTR)argstr;
 	in_rda.RDA_Source.CS_Length = strlen(argstr);
 	in_rda.RDA_Flags            = RDAF_NOPROMPT;
 
@@ -1020,7 +1020,7 @@ int smb2fs_main(struct DosPacket *pkt)
 		goto cleanup;
 	}
 
-	md.rda = read_startup_args(cmd_template, md.args, startup);
+	md.rda = read_startup_args((CONST_STRPTR)cmd_template, md.args, startup);
 	if (md.rda == NULL)
 	{
 		error = IoErr();

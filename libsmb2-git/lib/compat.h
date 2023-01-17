@@ -208,16 +208,21 @@ struct sockaddr_storage {
 
 #endif
 
-#if defined(__amigaos4__) || defined(__AMIGA__)
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 
 #include <errno.h>
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#if defined(__amigaos4__) || defined(__AROS__)
+#include <sys/uio.h>
+#endif
 
 #define getlogin_r(a,b) ENXIO
+#ifndef __AROS__
 #define srandom srand
 #define random rand
+#endif
 #define getaddrinfo smb2_getaddrinfo
 #define freeaddrinfo smb2_freeaddrinfo
 

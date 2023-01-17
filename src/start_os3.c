@@ -22,6 +22,7 @@
 #include "smb2fs.h"
 #include "smb2-handler_rev.h"
 
+#include <bsdsocket/socketbasetags.h>
 #include <proto/bsdsocket.h>
 #include <SDI/SDI_compiler.h>
 #include <errno.h>
