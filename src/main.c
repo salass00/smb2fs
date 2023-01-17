@@ -324,13 +324,13 @@ static void smb2fs_fillstat(struct fbx_stat *stbuf, const struct smb2_stat_64 *s
 	switch (smb2_st->smb2_type)
 	{
 		case SMB2_TYPE_FILE:
-			stbuf->st_mode = _IFREG;
+			stbuf->st_mode = S_IFREG;
 			break;
 		case SMB2_TYPE_DIRECTORY:
-			stbuf->st_mode = _IFDIR;
+			stbuf->st_mode = S_IFDIR;
 			break;
 		case SMB2_TYPE_LINK:
-			stbuf->st_mode = _IFLNK;
+			stbuf->st_mode = S_IFLNK;
 			break;
 	}
 	stbuf->st_mode |= S_IRWXU; /* Can we do something better? */
