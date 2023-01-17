@@ -78,4 +78,5 @@ examples/smb2-put-sync: examples/smb2-put-sync.c libsmb2.a
 .PHONY: clean
 clean:
 	rm -rf libsmb2.a obj
+	rm -rf $(addprefix examples/,$(EXAMPLES)) examples/*.debug
 
