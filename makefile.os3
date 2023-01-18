@@ -29,7 +29,7 @@ all: $(TARGET)
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f Makefile.os3 libsmb2.a ARCH=$(ARCH)
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.os3 libsmb2.a ARCH=$(ARCH)
 
 obj/%.o: src/%.c
 	@mkdir -p obj
@@ -44,7 +44,7 @@ $(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
 
 .PHONY: clean
 clean:
-	$(MAKE) -C $(LIBSMB2DIR) -f Makefile.os3 clean
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.os3 clean
 	rm -rf $(TARGET) $(TARGET).debug obj
 
 .PHONY: revision
