@@ -18,32 +18,34 @@ LIBS    = -larosc -ldebug
 
 SRCS = start_os3.c main.c time.c malloc.c
 
-OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+OBJS = $(addprefix obj-aros/,$(SRCS:.c=.o))
 
 .PHONY: all
-all: $(TARGET)
+all: bin-aros/$(TARGET)
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros libsmb2.a
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros bin-aros/libsmb2.a
 
-obj/%.o: src/%.c
-	@mkdir -p obj
+obj-aros/%.o: src/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(LIBSMB2DIR)/libsmb2.a: build-libsmb2
+$(LIBSMB2DIR)/bin-aros/libsmb2.a: build-libsmb2
 	@true
 
-$(TARGET).debug: $(OBJS) $(LIBSMB2DIR)/libsmb2.a
+bin-aros/$(TARGET).debug: $(OBJS) $(LIBSMB2DIR)/bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
+bin-aros/$(TARGET): $(OBJS) $(LIBSMB2DIR)/bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) -s $(LDFLAGS) -o $@ $^ $(LIBS)
 
 .PHONY: clean
 clean:
 	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros clean
-	rm -rf $(TARGET) $(TARGET).debug obj
+	rm -rf bin-aros obj-aros
 
 .PHONY: revision
 revision:

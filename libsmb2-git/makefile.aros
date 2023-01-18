@@ -26,7 +26,7 @@ SRCS = aes.c aes128ccm.c alloc.c dcerpc.c dcerpc-lsa.c dcerpc-srvsvc.c \
        smb2-share-enum.c smb3-seal.c smb2-signing.c socket.c sync.c \
        timestamps.c unicode.c usha.c compat.c
 
-OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+OBJS = $(addprefix obj-aros/,$(SRCS:.c=.o))
 
 EXAMPLES = smb2-cat-async smb2-cat-sync \
            smb2-statvfs-sync \
@@ -34,42 +34,43 @@ EXAMPLES = smb2-cat-async smb2-cat-sync \
            smb2-put-async smb2-put-sync
 
 .PHONY: all
-all: libsmb2.a
+all: bin-aros/libsmb2.a
 
-obj/%.o: lib/%.c
-	@mkdir -p obj
+obj-aros/%.o: lib/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-libsmb2.a: $(OBJS)
+bin-aros/libsmb2.a: $(OBJS)
+	@mkdir -p $(dir $@)
 	$(AR) -crv $@ $^
 	$(RANLIB) $@
 
 .PHONY: build-examples
 build-examples: $(addprefix examples/,$(EXAMPLES))
 
-examples/smb2-cat-async: examples/smb2-cat-async.c libsmb2.a
+examples/smb2-cat-async: examples/smb2-cat-async.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-cat-sync: examples/smb2-cat-sync.c libsmb2.a
+examples/smb2-cat-sync: examples/smb2-cat-sync.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-statvfs-sync: examples/smb2-statvfs-sync.c libsmb2.a
+examples/smb2-statvfs-sync: examples/smb2-statvfs-sync.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-ls-async: examples/smb2-ls-async.c libsmb2.a
+examples/smb2-ls-async: examples/smb2-ls-async.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-ls-sync: examples/smb2-ls-sync.c libsmb2.a
+examples/smb2-ls-sync: examples/smb2-ls-sync.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-put-async: examples/smb2-put-async.c libsmb2.a
+examples/smb2-put-async: examples/smb2-put-async.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-put-sync: examples/smb2-put-sync.c libsmb2.a
+examples/smb2-put-sync: examples/smb2-put-sync.c bin-aros/libsmb2.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 .PHONY: clean
 clean:
-	rm -rf libsmb2.a obj
+	rm -rf bin-aros obj-aros
 	rm -rf $(addprefix examples/,$(EXAMPLES))
 
