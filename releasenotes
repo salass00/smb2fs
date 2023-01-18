@@ -32,3 +32,10 @@ smb2-handler 53.4 (d.m.2023)
 - Rewrote the readv() and writev() implementations according to:
   https://github.com/sahlberg/libsmb2/issues/242
 
+- Merged latest changes from libsmb2:
+  - Read share flags and use encryption if needed.
+  - Fix ntlm_convert_password_hash on big endian.
+
+- Added AmigaOS 3 and AROS ports (the AmigaOS 3 port is thanks to the work of
+  Szilard Biro).
+
