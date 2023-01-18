@@ -27,7 +27,7 @@ smb2-handler 53.3 (8.1.2023)
   calculate used and free percentages will report reasonable results).
 
 
-smb2-handler 53.4 (d.m.2023)
+smb2-handler 53.4 (18.1.2023)
 
 - Rewrote the readv() and writev() implementations according to:
   https://github.com/sahlberg/libsmb2/issues/242
