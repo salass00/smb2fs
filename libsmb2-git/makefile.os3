@@ -3,8 +3,7 @@ AR     = m68k-amigaos-ar
 RANLIB = m68k-amigaos-ranlib
 STRIP  = m68k-amigaos-strip
 
-ARCH     = -m68020
-OPTIMIZE = -O2 $(ARCH) -noixemul -fno-common -fomit-frame-pointer
+OPTIMIZE = -O2 -noixemul -fno-common -fomit-frame-pointer
 DEBUG    = -g
 WARNINGS = -Wall -Wno-pointer-sign -Wno-discarded-qualifiers -Werror
 INCLUDES = -I. -I./include -I./include/smb2
@@ -27,52 +26,66 @@ SRCS = aes.c aes128ccm.c alloc.c dcerpc.c dcerpc-lsa.c dcerpc-srvsvc.c \
        smb2-share-enum.c smb3-seal.c smb2-signing.c socket.c sync.c \
        timestamps.c unicode.c usha.c compat.c
 
-OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+ARCH_000 = -m68000
+OBJS_000 = $(addprefix obj-000/,$(SRCS:.c=.o))
+
+ARCH_020 = -m68020
+OBJS_020 = $(addprefix obj-020/,$(SRCS:.c=.o))
 
 EXAMPLES = smb2-cat-async smb2-cat-sync \
            smb2-ls-async  smb2-ls-sync  \
            smb2-put-async smb2-put-sync
 
 .PHONY: all
-all: libsmb2.a
+all: bin-000/libsmb2.a bin-020/libsmb2.a
 
-obj/%.o: lib/%.c
-	@mkdir -p obj
-	$(CC) $(CFLAGS) -c -o $@ $<
+obj-000/%.o: lib/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_000) $(CFLAGS) -c -o $@ $<
 
-libsmb2.a: $(OBJS)
+obj-020/%.o: lib/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_020) $(CFLAGS) -c -o $@ $<
+
+bin-000/libsmb2.a: $(OBJS_000)
+	@mkdir -p $(dir $@)
+	$(AR) -crv $@ $^
+	$(RANLIB) $@
+
+bin-020/libsmb2.a: $(OBJS_020)
+	@mkdir -p $(dir $@)
 	$(AR) -crv $@ $^
 	$(RANLIB) $@
 
 .PHONY: build-examples
 build-examples: $(addprefix examples/,$(EXAMPLES))
 
-examples/smb2-cat-async: examples/smb2-cat-async.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
+examples/smb2-cat-async: examples/smb2-cat-async.c bin-020/libsmb2.a
+	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
-examples/smb2-cat-sync: examples/smb2-cat-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
+examples/smb2-cat-sync: examples/smb2-cat-sync.c bin-020/libsmb2.a
+	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
-examples/smb2-ls-async: examples/smb2-ls-async.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
+examples/smb2-ls-async: examples/smb2-ls-async.c bin-020/libsmb2.a
+	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
-examples/smb2-ls-sync: examples/smb2-ls-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
+examples/smb2-ls-sync: examples/smb2-ls-sync.c bin-020/libsmb2.a
+	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
-examples/smb2-put-async: examples/smb2-put-async.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
+examples/smb2-put-async: examples/smb2-put-async.c bin-020/libsmb2.a
+	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
-examples/smb2-put-sync: examples/smb2-put-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
+examples/smb2-put-sync: examples/smb2-put-sync.c bin-020/libsmb2.a
+	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
 .PHONY: clean
 clean:
-	rm -rf libsmb2.a obj
+	rm -rf bin-000 bin-020 obj-000 obj-020
 	rm -rf $(addprefix examples/,$(EXAMPLES)) examples/*.debug
 

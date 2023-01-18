@@ -6,8 +6,7 @@ VERSION = 53
 
 LIBSMB2DIR = libsmb2-git
 
-ARCH     = -m68020
-OPTIMIZE = -O2 $(ARCH) -noixemul -fno-common -fomit-frame-pointer
+OPTIMIZE = -O2 -noixemul -fno-common -fomit-frame-pointer
 # -save-temps
 DEBUG    = -g
 INCLUDES = -I. -I./$(LIBSMB2DIR)/include
@@ -15,37 +14,58 @@ DEFINES  =
 WARNINGS = -Wall -Wwrite-strings -Wno-pointer-sign -Wno-int-conversion -Werror
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
-LDFLAGS = $(ARCH) -noixemul -nostartfiles
+LDFLAGS = -noixemul -nostartfiles
 LIBS    = -ldebug
 
 #STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
 SRCS = start_os3.c main.c reaction-password-req.c time.c strlcpy.c strdup.c malloc.c
 
-OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+ARCH_000 = -m68000
+OBJS_000 = $(addprefix obj-000/,$(SRCS:.c=.o))
+
+ARCH_020 = -m68020
+OBJS_020 = $(addprefix obj-020/,$(SRCS:.c=.o))
 
 .PHONY: all
-all: $(TARGET)
+all: bin-000/$(TARGET) bin-020/$(TARGET)
 
-.PHONY: build-libsmb2
-build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f makefile.os3 libsmb2.a ARCH=$(ARCH)
+obj-000/%.o: src/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_000) $(CFLAGS) -c -o $@ $<
 
-obj/%.o: src/%.c
-	@mkdir -p obj
-	$(CC) $(CFLAGS) -c -o $@ $<
+obj-020/%.o: src/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_020) $(CFLAGS) -c -o $@ $<
 
-$(LIBSMB2DIR)/libsmb2.a: build-libsmb2
+.PHONY: build-libsmb2-000 build-libsmb2-020
+
+build-libsmb2-000:
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.os3 bin-000/libsmb2.a
+
+build-libsmb2-020:
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.os3 bin-020/libsmb2.a
+
+$(LIBSMB2DIR)/bin-000/libsmb2.a: build-libsmb2-000
 	@true
 
-$(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
-	$(CC) $(LDFLAGS) -o $@.debug $^ $(LIBS) -Wl,-Map=$@.map
+$(LIBSMB2DIR)/bin-020/libsmb2.a: build-libsmb2-020
+	@true
+
+bin-000/$(TARGET): $(OBJS_000) $(LIBSMB2DIR)/bin-000/libsmb2.a
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_000) $(LDFLAGS) -o $@.debug $^ $(LIBS)
+	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+
+bin-020/$(TARGET): $(OBJS_020) $(LIBSMB2DIR)/bin-020/libsmb2.a
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_020) $(LDFLAGS) -o $@.debug $^ $(LIBS)
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
 .PHONY: clean
 clean:
 	$(MAKE) -C $(LIBSMB2DIR) -f makefile.os3 clean
-	rm -rf $(TARGET) $(TARGET).debug obj
+	rm -rf bin-000 bin-020 obj-000 obj-020
 
 .PHONY: revision
 revision:
