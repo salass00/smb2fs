@@ -35,7 +35,7 @@ copy clone ENV:Sys/def_ascii.info ${destdir}/smb2fs/releasenotes.info
 
 changetooltype ${destdir}/smb2fs/Install.info ADD "APPNAME=smb2-handler"
 
-delete force RAM:smb2fs-$numvers.lha
-lha a -x -r RAM:smb2fs-$numvers.lha ${destdir}/
+delete force RAM:smb2fs.ppc-amigaos.lha
+lha a -x -r RAM:smb2fs.ppc-amigaos.lha ${destdir}/
 
-echo "RAM:smb2fs-$numvers.lha created"
+echo "RAM:smb2fs.ppc-amigaos.lha created"
