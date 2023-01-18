@@ -1,0 +1,9 @@
+(welcome)
+(set @default-dest "SYS:")
+(copylib
+	(prompt "Copying smb2-handler")
+	(help @copylib-help)
+	(source "L/smb2-handler")
+	(dest "L:")
+)
+(exit)
