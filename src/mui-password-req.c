@@ -32,11 +32,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+struct Library *MUIMasterBase;
 
 char *request_password(const char *user, const char *server)
 {
 	struct IntuitionBase *IntuitionBase;
-	struct Library       *MUIMasterBase;
 	char                 *password = NULL;
 
 	IntuitionBase = (struct IntuitionBase *)OpenLibrary((STRPTR)"intuition.library", 39);
@@ -87,7 +89,7 @@ char *request_password(const char *user, const char *server)
 					switch (id)
 					{
 						case 31337:
-							get(stringObj, MUIA_String_Contents, (LONG *)&password);
+							get(stringObj, MUIA_String_Contents, &password);
 							if (password) password = strdup(password);
 							DoMethod(app, MUIM_Application_ReturnID, MUIV_Application_ReturnID_Quit);
 							break;

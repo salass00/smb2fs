@@ -16,7 +16,7 @@ CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -nostartfiles
 LIBS    = -larosc -ldebug
 
-SRCS = start_os3.c main.c time.c malloc.c
+SRCS = start_os3.c main.c mui-password-req.c time.c strdup.c malloc.c
 
 OBJS = $(addprefix obj-aros/,$(SRCS:.c=.o))
 

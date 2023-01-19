@@ -149,9 +149,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	if (password == NULL && !md->args[ARG_NOPASSWORDREQ])
 	{
-#ifndef __AROS__
 		url->password = password = request_password(url->user, url->server);
-#endif
 		if (password == NULL)
 		{
 			smb2fs_destroy(fsd);
