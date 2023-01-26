@@ -1,5 +1,5 @@
-# Ignore object and archive files
-*.[oa]
+# Ignore object, dependency and archive files
+*.[oda]
 # Ignore libsmb2 generated files
 smb2-cat-async
 smb2-cat-sync

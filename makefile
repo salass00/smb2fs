@@ -21,17 +21,21 @@ STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 SRCS = start.c main.c reaction-password-req.c time.c bsdsocket-stubs.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+DEPS = $(OBJS:.o=.d)
 
 .PHONY: all
 all: $(TARGET)
 
-.PHONY: build-libsmb2
-build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) libsmb2.a
+-include $(DEPS)
 
 obj/%.o: src/%.c
 	@mkdir -p obj
+	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(CFLAGS) $<
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+.PHONY: build-libsmb2
+build-libsmb2:
+	$(MAKE) -C $(LIBSMB2DIR) libsmb2.a
 
 $(LIBSMB2DIR)/libsmb2.a: build-libsmb2
 	@true
@@ -53,5 +57,5 @@ clean:
 
 .PHONY: revision
 revision:
-	bumprev -e si $(VERSION) $(TARGET)
+	bumprev -e is $(VERSION) $(TARGET)
 
