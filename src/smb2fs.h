@@ -34,6 +34,7 @@ void close_interface(struct Interface *interface);
 #endif
 
 char *request_password(const char *user, const char *server);
+void request_error(const char *error_string, ...);
 
 int smb2fs_main(struct DosPacket *pkt);
 

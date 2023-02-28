@@ -106,7 +106,10 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	fsd = calloc(1, sizeof(*fsd));
 	if (fsd == NULL)
+	{
+		request_error("Failed to allocate memory for the file system data");
 		return NULL;
+	}
 
 	if (md->args[ARG_READONLY])
 		fsd->rdonly = TRUE;
@@ -114,11 +117,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	fsd->smb2 = smb2_init_context();
 	if (fsd->smb2 == NULL)
 	{
-#ifdef __amigaos4__
-		DebugPrintF("[smb2fs] Failed to init context\n");
-#else
-		KPutS((STRPTR)"[smb2fs] Failed to init context\n");
-#endif
+		request_error("Failed to init context");
 		smb2fs_destroy(fsd);
 		return NULL;
 	}
@@ -126,11 +125,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	url = smb2_parse_url(fsd->smb2, (char *)md->args[ARG_URL]);
 	if (url == NULL)
 	{
-#ifdef __amigaos4__
-		DebugPrintF("[smb2fs] Failed to parse url: %s\n", md->args[ARG_URL]);
-#else
-		KPrintF((STRPTR)"[smb2fs] Failed to parse url: %s\n", md->args[ARG_URL]);
-#endif
+		request_error("Failed to parse url:\n%s", md->args[ARG_URL]);
 		smb2fs_destroy(fsd);
 		return NULL;
 	}
@@ -152,6 +147,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		url->password = password = request_password(url->user, url->server);
 		if (password == NULL)
 		{
+			request_error("No password was specified for the share");
 			smb2fs_destroy(fsd);
 			return NULL;
 		}
@@ -165,11 +161,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	if (smb2_connect_share(fsd->smb2, url->server, url->share, username, password) < 0)
 	{
-#ifdef __amigaos4__
-		DebugPrintF("[smb2fs] smb2_connect_share failed. %s\n", smb2_get_error(fsd->smb2));
-#else
-		KPrintF((STRPTR)"[smb2fs] smb2_connect_share failed. %s\n", smb2_get_error(fsd->smb2));
-#endif
+		request_error("smb2_connect_share failed.\n%s", smb2_get_error(fsd->smb2));
 		smb2_destroy_url(url);
 		smb2fs_destroy(fsd);
 		return NULL;
@@ -219,6 +211,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 			fsd->rootdir = strdup(pathbuf);
 			if (fsd->rootdir == NULL)
 			{
+				request_error("Failed to allocate memory for the root directory");
 				smb2_destroy_url(url);
 				smb2fs_destroy(fsd);
 				return NULL;
