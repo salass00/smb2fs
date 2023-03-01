@@ -19,7 +19,7 @@ LIBS    = -ldebug
 
 #STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start_os3.c main.c reaction-password-req.c time.c strlcpy.c strdup.c malloc.c
+SRCS = start_os3.c main.c reaction-password-req.c error-req.c time.c strlcpy.c strdup.c malloc.c
 
 ARCH_000 = -m68000
 OBJS_000 = $(addprefix obj-000/,$(SRCS:.c=.o))

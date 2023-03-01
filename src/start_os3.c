@@ -111,7 +111,7 @@ int startup(void)
 		goto cleanup;
 	}
 
-	SocketBase = OpenLibrary((STRPTR)bsdsocketName, 4);
+	SocketBase = OpenLibrary((STRPTR)bsdsocketName, 3);
 	if (SocketBase == NULL)
 	{
 		goto cleanup;

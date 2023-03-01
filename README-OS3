@@ -10,6 +10,8 @@ Requirements:
 
 - filesysbox.library 54.3 or newer.
 
+- AmiTCP 3.0 or any compatible TCP/IP stack
+
 Usage:
 
 Create a DOSDriver with the contents:
