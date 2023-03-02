@@ -32,6 +32,7 @@
 #include <clib/debug_protos.h>
 #endif
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
