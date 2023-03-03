@@ -44,9 +44,23 @@ password "password123" use:
 
 Startup = "smb://myuser:password123@mypc/myshare"
 
+If the user name or password contains reserved characters (: ; @) the 
+USER and PASSWORD arguments can be used instead:
+
+Startup = "smb://mypc/myshare USER=myuser PASSWORD=password123"
+
+If you prefer not to store the password as plain text, you can also use its
+NTLM hash with the following syntax:
+
+Startup = "smb://mypc/myshare USER=myuser PASSWORD=ntlm:HASHABCDEF"
+
 To connect to the same share using a guest account you can use:
 
 Startup = "smb://mypc/myshare NOPASSWORDREQ"
+
+To give the mounted share a custom name the VOLUME argument can be used:
+
+Startup = "smb://mypc/myshare VOLUME=MyShare"
 
 If you want the handler to be started immediately on mount, rather than on the
 first access, then make sure that ACTIVATE=1 is set in either in the icon
