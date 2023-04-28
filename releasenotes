@@ -39,3 +39,16 @@ smb2-handler 53.4 (18.1.2023)
 - Added AmigaOS 3 and AROS ports (the AmigaOS 3 port is thanks to the work of
   Szilard Biro).
 
+
+smb2-handler 53.5 (d.m.2023)
+
+- Added a MUI password requester for the AROS port (based on code provided by
+  Szilard Biro).
+
+- Reduced the minimum bsdsocket.library version from 4 to 3 in AmigaOS 3/AROS
+  ports.
+
+- Merged error requester code from Szilard Biro.
+
+- Made smb2fs_init() call smb2_set_domain() if url->domain is not NULL.
+
