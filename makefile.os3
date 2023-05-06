@@ -21,11 +21,11 @@ LIBS    = -ldebug
 
 SRCS = start_os3.c main.c reaction-password-req.c error-req.c time.c strlcpy.c strdup.c malloc.c
 
-ARCH_000 = -m68000
+ARCH_000 = -mcpu=68000 -mtune=68000
 OBJS_000 = $(addprefix obj-000/,$(SRCS:.c=.o))
 DEPS_000 = $(OBJS_000:.o=.d)
 
-ARCH_020 = -m68020
+ARCH_020 = -mcpu=68020 -mtune=68020-60
 OBJS_020 = $(addprefix obj-020/,$(SRCS:.c=.o))
 DEPS_020 = $(OBJS_020:.o=.d)
 
