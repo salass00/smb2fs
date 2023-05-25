@@ -975,7 +975,7 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 #endif
 {
 	char          *argstr;
-	struct RDArgs *rda, in_rda;
+	struct RDArgs *rda, *result = NULL;
 
 	argstr = malloc(strlen(startup) + 2);
 	if (argstr == NULL)
@@ -990,17 +990,31 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 	//IExec->DebugPrintF("[smb2fs] argstr: '%s'\n", argstr);
 	strcat(argstr, "\n");
 
-	memset(&in_rda, 0, sizeof(in_rda));
+	rda = AllocDosObject(DOS_RDARGS, NULL);
+	if (rda != NULL)
+	{
+		rda->RDA_Source.CS_Buffer = (STRPTR)argstr;
+		rda->RDA_Source.CS_Length = strlen(argstr);
+		rda->RDA_Flags            = RDAF_NOPROMPT;
 
-	in_rda.RDA_Source.CS_Buffer = (STRPTR)argstr;
-	in_rda.RDA_Source.CS_Length = strlen(argstr);
-	in_rda.RDA_Flags            = RDAF_NOPROMPT;
-
-	rda = ReadArgs(template, args, &in_rda);
+		result = ReadArgs(template, args, rda);
+		if (result == NULL)
+		{
+			FreeDosObject(DOS_RDARGS, rda);
+		}
+	}
 
 	free(argstr);
+	return result;
+}
 
-	return rda;
+static void free_startup_args(struct RDArgs *rda)
+{
+	if (rda != NULL)
+	{
+		FreeArgs(rda);
+		FreeDosObject(DOS_RDARGS, rda);
+	}
 }
 
 int smb2fs_main(struct DosPacket *pkt)
@@ -1089,7 +1103,7 @@ cleanup:
 
 	if (md.rda != NULL)
 	{
-		FreeArgs(md.rda);
+		free_startup_args(md.rda);
 		md.rda = NULL;
 	}
 

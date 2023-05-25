@@ -52,3 +52,11 @@ smb2-handler 53.5 (28.4.2023)
 
 - Made smb2fs_init() call smb2_set_domain() if url->domain is not NULL.
 
+
+smb2-handler 53.6 (d.m.2023)
+
+- read_startup_args() now uses AllocDosObject() to create the RDArgs for
+  ReadArgs() instead of allocating it locally on the stack. Strangely this bug
+  didn't seem to cause any problems on AmigaOS 4 but on AmigaOS 3 it caused an
+  AN_BadFreeAddr (#0100000F) alert on filesystem exit (ACTION_DIE).
+
