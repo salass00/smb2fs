@@ -53,7 +53,7 @@ smb2-handler 53.5 (28.4.2023)
 - Made smb2fs_init() call smb2_set_domain() if url->domain is not NULL.
 
 
-smb2-handler 53.6 (d.m.2023)
+smb2-handler 53.6 (25.5.2023)
 
 - read_startup_args() now uses AllocDosObject() to create the RDArgs for
   ReadArgs() instead of allocating it locally on the stack. Strangely this bug
