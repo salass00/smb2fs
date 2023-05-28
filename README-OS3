@@ -6,7 +6,7 @@ Requirements:
 
 - AmigaOS 3.0 or newer.
 
-- Optional: requester.class (from ClassAct/ReAction) for the password requester.
+- Optional: ReqTools for the password requester.
 
 - filesysbox.library 54.3 or newer.
 
