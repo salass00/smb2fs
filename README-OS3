@@ -10,7 +10,9 @@ Requirements:
 
 - filesysbox.library 54.3 or newer.
 
-- AmiTCP 3.0 or any compatible TCP/IP stack
+- AmiTCP 3.0 or any compatible TCP/IP stack.
+
+- Optional: KillDev from IDEfix97 for unmounting.
 
 Usage:
 
@@ -66,3 +68,7 @@ If you want the handler to be started immediately on mount, rather than on the
 first access, then make sure that ACTIVATE=1 is set in either in the icon
 tooltypes or in the DOSDriver file itself.
 
+To unmount the share, set the DOSDEV tooltype in KillDev's icon to the name
+of the DOSDriver file, then start KillDev from Workbench. This can also be
+used if the volume couldn't be mounted, and you get a "device already mounted"
+message.
