@@ -8,6 +8,7 @@ smb2-ls-async
 smb2-ls-sync
 smb2-put-async
 smb2-put-sync
+smb2-share-enum
 *.debug
 # Ignore smb2fs generated files
 obj

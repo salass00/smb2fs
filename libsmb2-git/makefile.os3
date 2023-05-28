@@ -32,9 +32,10 @@ OBJS_000 = $(addprefix obj-000/,$(SRCS:.c=.o))
 ARCH_020 = -mcpu=68020 -mtune=68020-60
 OBJS_020 = $(addprefix obj-020/,$(SRCS:.c=.o))
 
-EXAMPLES = smb2-cat-async smb2-cat-sync \
-           smb2-ls-async  smb2-ls-sync  \
-           smb2-put-async smb2-put-sync
+#EXAMPLES = smb2-cat-async smb2-cat-sync \
+#           smb2-ls-async  smb2-ls-sync  \
+#           smb2-put-async smb2-put-sync \
+#           smb2-share-enum
 
 .PHONY: all
 all: bin-000/libsmb2.a bin-020/libsmb2.a
@@ -57,35 +58,45 @@ bin-020/libsmb2.a: $(OBJS_020)
 	$(AR) -crv $@ $^
 	$(RANLIB) $@
 
-.PHONY: build-examples
-build-examples: $(addprefix examples/,$(EXAMPLES))
-
-examples/smb2-cat-async: examples/smb2-cat-async.c bin-020/libsmb2.a
-	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-cat-sync: examples/smb2-cat-sync.c bin-020/libsmb2.a
-	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-ls-async: examples/smb2-ls-async.c bin-020/libsmb2.a
-	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-ls-sync: examples/smb2-ls-sync.c bin-020/libsmb2.a
-	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-put-async: examples/smb2-put-async.c bin-020/libsmb2.a
-	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-put-sync: examples/smb2-put-sync.c bin-020/libsmb2.a
-	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#.PHONY: build-examples
+#build-examples: $(addprefix bin-020/,$(EXAMPLES))
+#
+#bin-020/smb2-cat-async: examples/smb2-cat-async.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#
+#bin-020/smb2-cat-sync: examples/smb2-cat-sync.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#
+#bin-020/smb2-ls-async: examples/smb2-ls-async.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#
+#bin-020/smb2-ls-sync: examples/smb2-ls-sync.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#
+#bin-020/smb2-put-async: examples/smb2-put-async.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#
+#bin-020/smb2-put-sync: examples/smb2-put-sync.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
+#
+#bin-020/smb2-share-enum: examples/smb2-share-enum.c bin-020/libsmb2.a
+#	@mkdir -p $(dir $@)
+#	$(CC) $(ARCH_020) $(CFLAGS) -o $@.debug $^
+#	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
 .PHONY: clean
 clean:
 	rm -rf bin-000 bin-020 obj-000 obj-020
-	rm -rf $(addprefix examples/,$(EXAMPLES)) examples/*.debug
 

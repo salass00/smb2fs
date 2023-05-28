@@ -31,7 +31,8 @@ OBJS = $(addprefix obj-aros/,$(SRCS:.c=.o))
 EXAMPLES = smb2-cat-async smb2-cat-sync \
            smb2-statvfs-sync \
            smb2-ls-async  smb2-ls-sync  \
-           smb2-put-async smb2-put-sync
+           smb2-put-async smb2-put-sync \
+           smb2-share-enum
 
 .PHONY: all
 all: bin-aros/libsmb2.a
@@ -46,31 +47,41 @@ bin-aros/libsmb2.a: $(OBJS)
 	$(RANLIB) $@
 
 .PHONY: build-examples
-build-examples: $(addprefix examples/,$(EXAMPLES))
+build-examples: $(addprefix bin-aros/,$(EXAMPLES))
 
-examples/smb2-cat-async: examples/smb2-cat-async.c bin-aros/libsmb2.a
+bin-aros/smb2-cat-async: examples/smb2-cat-async.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-cat-sync: examples/smb2-cat-sync.c bin-aros/libsmb2.a
+bin-aros/smb2-cat-sync: examples/smb2-cat-sync.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-statvfs-sync: examples/smb2-statvfs-sync.c bin-aros/libsmb2.a
+bin-aros/smb2-statvfs-sync: examples/smb2-statvfs-sync.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-ls-async: examples/smb2-ls-async.c bin-aros/libsmb2.a
+bin-aros/smb2-ls-async: examples/smb2-ls-async.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-ls-sync: examples/smb2-ls-sync.c bin-aros/libsmb2.a
+bin-aros/smb2-ls-sync: examples/smb2-ls-sync.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-put-async: examples/smb2-put-async.c bin-aros/libsmb2.a
+bin-aros/smb2-put-async: examples/smb2-put-async.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/smb2-put-sync: examples/smb2-put-sync.c bin-aros/libsmb2.a
+bin-aros/smb2-put-sync: examples/smb2-put-sync.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
+bin-aros/smb2-share-enum: examples/smb2-share-enum.c bin-aros/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 .PHONY: clean
 clean:
 	rm -rf bin-aros obj-aros
-	rm -rf $(addprefix examples/,$(EXAMPLES))
 
