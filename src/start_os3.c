@@ -48,14 +48,28 @@ static const char bsdsocketName[];
 extern int setup_malloc(void);
 extern int cleanup_malloc(void);
 
+#ifdef __AROS__
+AROS_UFH3(int, startup,
+	AROS_UFHA(STRPTR, argstr, A0),
+	AROS_UFHA(ULONG, arglen, D0),
+	AROS_UFHA(struct ExecBase *, sysbase, A6)
+)
+{
+	AROS_USERFUNC_INIT
+#else
 int startup(void)
 {
+#endif
 	struct Process   *me;
 	struct DosPacket *pkt = NULL;
 	int               rc = RETURN_ERROR;
 	struct MsgPort   *port = NULL;
 
+#ifdef __AROS__
+	SysBase = sysbase;
+#else
 	SysBase = *(struct ExecBase **)4;
+#endif
 
 	if (!setup_malloc())
 	{
@@ -174,6 +188,10 @@ cleanup:
 	cleanup_malloc();
 
 	return rc;
+
+#ifdef __AROS__
+	AROS_USERFUNC_EXIT
+#endif
 }
 
 /* Disable CTRL-C signal checking in libc. */
