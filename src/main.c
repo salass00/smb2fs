@@ -153,6 +153,11 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		}
 	}
 
+	if (password == NULL)
+	{
+		password = "";
+	}
+
 	smb2_set_security_mode(fsd->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
 	if (url->domain != NULL)
 	{
