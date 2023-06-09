@@ -78,7 +78,7 @@ struct smb2fs_mount_data {
 	char          *device;
 	struct RDArgs *rda;
 #ifdef __AROS__
-	IPTR           args[NUM_ARGS];
+	SIPTR          args[NUM_ARGS];
 #else
 	LONG           args[NUM_ARGS];
 #endif
@@ -974,7 +974,7 @@ static void remove_double_quotes(char *argstr)
 }
 
 #ifdef __AROS__
-static struct RDArgs *read_startup_args(CONST_STRPTR template, IPTR *args, const char *startup)
+static struct RDArgs *read_startup_args(CONST_STRPTR template, SIPTR *args, const char *startup)
 #else
 static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const char *startup)
 #endif
@@ -1002,7 +1002,7 @@ static struct RDArgs *read_startup_args(CONST_STRPTR template, LONG *args, const
 		rda->RDA_Source.CS_Length = strlen(argstr);
 		rda->RDA_Flags            = RDAF_NOPROMPT;
 
-		result = ReadArgs(template, args, rda);
+		result = ReadArgs(template, (APTR)args, rda);
 		if (result == NULL)
 		{
 			FreeDosObject(DOS_RDARGS, rda);

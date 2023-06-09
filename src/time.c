@@ -39,7 +39,11 @@ int gettimeofday(struct timeval *tvp, struct timezone *tzp)
 
 	/* Get difference to GMT time in minutes */
 	FbxQueryFSTags(fs,
-		FBXT_GMT_OFFSET, (Tag)&gmtoffset,
+#ifdef __amigaos4__
+		FBXT_GMT_OFFSET, &gmtoffset,
+#else
+		FBXT_GMT_OFFSET, (IPTR)&gmtoffset,
+#endif
 		TAG_END);
 
 	if (tvp != NULL)
