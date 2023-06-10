@@ -1,5 +1,7 @@
-CC    = i386-aros-gcc
-STRIP = i386-aros-strip
+CPU ?= i386
+
+CC    = $(CPU)-aros-gcc
+STRIP = $(CPU)-aros-strip
 
 TARGET  = smb2-handler
 VERSION = 53
@@ -15,6 +17,18 @@ WARNINGS = -Wall -Werror
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -nostartfiles
 LIBS    = -larosc -ldebug
+
+MKFLAGS =
+
+ifneq (i386,$(CPU))
+	MKFLAGS += CPU=$(CPU)
+endif
+
+ifneq (,$(SYSROOT))
+	CFLAGS  := --sysroot=$(SYSROOT) $(CFLAGS)
+	LDFLAGS := --sysroot=$(SYSROOT) $(LDFLAGS)
+	MKFLAGS += SYSROOT=$(SYSROOT)
+endif
 
 SRCS = start_os3.c main.c mui-password-req.c error-req.c time.c strdup.c malloc.c
 
@@ -33,7 +47,7 @@ obj-aros/%.o: src/%.c
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros bin-aros/libsmb2.a
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros bin-aros/libsmb2.a $(MKFLAGS)
 
 $(LIBSMB2DIR)/bin-aros/libsmb2.a: build-libsmb2
 	@true
