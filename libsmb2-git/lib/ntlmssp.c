@@ -59,17 +59,6 @@
 #include <time.h>
 #endif
 
-#ifdef __AROS__
-#define islower(c) smb2_islower(c)
-static inline int smb2_islower(int c) {
-        return (c >= 'a' && c <= 'z');
-}
-#define toupper(c) smb2_toupper(c)
-static inline int smb2_toupper(int c) {
-        return islower(c) ? (c - ('a' - 'A')) : c;
-}
-#endif
-
 #include "compat.h"
 
 #include "slist.h"

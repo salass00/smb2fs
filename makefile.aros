@@ -10,7 +10,7 @@ LIBSMB2DIR = libsmb2-git
 
 OPTIMIZE = -O2 -fno-common -fomit-frame-pointer
 DEBUG    = -g
-INCLUDES = -I. -I./$(LIBSMB2DIR)/include
+INCLUDES = -I. -I./$(LIBSMB2DIR)/include -I./include
 DEFINES  = 
 WARNINGS = -Wall -Werror
 
