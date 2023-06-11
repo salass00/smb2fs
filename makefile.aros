@@ -32,38 +32,38 @@ endif
 
 SRCS = start_os3.c main.c mui-password-req.c error-req.c time.c strdup.c malloc.c
 
-OBJS = $(addprefix obj-aros/,$(SRCS:.c=.o))
+OBJS = $(addprefix obj/$(CPU)/,$(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
 
 .PHONY: all
-all: bin-aros/$(TARGET)
+all: bin/$(TARGET).$(CPU).debug bin/$(TARGET).$(CPU)
 
 -include $(DEPS)
 
-obj-aros/%.o: src/%.c
+obj/$(CPU)/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(CFLAGS) $<
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros bin-aros/libsmb2.a $(MKFLAGS)
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros bin/libsmb2.a.$(CPU) $(MKFLAGS)
 
-$(LIBSMB2DIR)/bin-aros/libsmb2.a: build-libsmb2
+$(LIBSMB2DIR)/bin/libsmb2.a.$(CPU): build-libsmb2
 	@true
 
-bin-aros/$(TARGET).debug: $(OBJS) $(LIBSMB2DIR)/bin-aros/libsmb2.a
+bin/$(TARGET).$(CPU).debug: $(OBJS) $(LIBSMB2DIR)/bin/libsmb2.a.$(CPU)
 	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-bin-aros/$(TARGET): $(OBJS) $(LIBSMB2DIR)/bin-aros/libsmb2.a
+bin/$(TARGET).$(CPU): $(OBJS) $(LIBSMB2DIR)/bin/libsmb2.a.$(CPU)
 	@mkdir -p $(dir $@)
 	$(CC) -s $(LDFLAGS) -o $@ $^ $(LIBS)
 
 .PHONY: clean
 clean:
 	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros clean
-	rm -rf bin-aros obj-aros
+	rm -rf bin obj
 
 .PHONY: revision
 revision:

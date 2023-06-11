@@ -20,12 +20,12 @@ mkdir -p ${DESTDIR}/smb2fs/L
 if [ "$HOST" = "m68k-amigaos" ]; then
   cp -p Install-OS3 ${DESTDIR}/smb2fs/Install
   cp -p README-OS3 ${DESTDIR}/smb2fs/README
-  cp -p bin-000/smb2-handler ${DESTDIR}/smb2fs/L/smb2-handler.000
-  cp -p bin-020/smb2-handler ${DESTDIR}/smb2fs/L/smb2-handler.020
+  cp -p bin/smb2-handler.000 ${DESTDIR}/smb2fs/L
+  cp -p bin/smb2-handler.020 ${DESTDIR}/smb2fs/L
 else
   cp -p Install-AROS ${DESTDIR}/smb2fs/Install
   cp -p README-AROS ${DESTDIR}/smb2fs/README
-  cp -p bin-aros/smb2-handler ${DESTDIR}/smb2fs/L
+  cp -p bin/smb2-handler.i386 ${DESTDIR}/smb2fs/L/smb2-handler
 fi;
 cp -p COPYING ${DESTDIR}/smb2fs
 cp -p ${LIBSMB2}/LICENCE-LGPL-2.1.txt ${DESTDIR}/smb2fs/LICENCE-libsmb2

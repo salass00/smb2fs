@@ -4,7 +4,7 @@ make all
 
 set libsmb2 libsmb2-git
 set destdir RAM:mkrelease
-set fullvers `c:version file smb2-handler`
+set fullvers `c:version file bin/smb2-handler`
 set numvers `c:cut "$fullvers" word 2`
 
 which changetooltype
@@ -24,7 +24,7 @@ copy clone README ${destdir}/smb2fs
 copy clone COPYING ${destdir}/smb2fs
 copy clone ${libsmb2}/LICENCE-LGPL-2.1.txt ${destdir}/smb2fs/LICENCE-libsmb2
 copy clone releasenotes ${destdir}/smb2fs
-copy clone smb2-handler ${destdir}/smb2fs/L
+copy clone bin/smb2-handler ${destdir}/smb2fs/L
 
 copy clone ENV:Sys/def_drawer.info ${destdir}/smb2fs.info
 copy clone ENV:Sys/def_install.info ${destdir}/smb2fs/Install.info

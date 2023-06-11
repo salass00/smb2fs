@@ -28,60 +28,19 @@ SRCS = aes.c aes128ccm.c alloc.c dcerpc.c dcerpc-lsa.c dcerpc-srvsvc.c \
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 
-EXAMPLES = smb2-cat-async smb2-cat-sync \
-           smb2-statvfs-sync \
-           smb2-ls-async  smb2-ls-sync  \
-           smb2-put-async smb2-put-sync \
-           smb2-share-enum
-
 .PHONY: all
-all: libsmb2.a
+all: bin/libsmb2.a
 
 obj/%.o: lib/%.c
-	@mkdir -p obj
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-libsmb2.a: $(OBJS)
+bin/libsmb2.a: $(OBJS)
+	@mkdir -p $(dir $@)
 	$(AR) -crv $@ $^
 	$(RANLIB) $@
 
-.PHONY: build-examples
-build-examples: $(addprefix examples/,$(EXAMPLES))
-
-examples/smb2-cat-async: examples/smb2-cat-async.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-cat-sync: examples/smb2-cat-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-statvfs-sync: examples/smb2-statvfs-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-ls-async: examples/smb2-ls-async.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-ls-sync: examples/smb2-ls-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-put-async: examples/smb2-put-async.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-put-sync: examples/smb2-put-sync.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
-examples/smb2-share-enum: examples/smb2-share-enum.c libsmb2.a
-	$(CC) $(CFLAGS) -o $@.debug $^
-	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
-
 .PHONY: clean
 clean:
-	rm -rf libsmb2.a obj
-	rm -rf $(addprefix examples/,$(EXAMPLES)) examples/*.debug
+	rm -rf bin obj
 

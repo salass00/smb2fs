@@ -1,21 +1,7 @@
 # Ignore object, dependency and archive files
 *.[oda]
-# Ignore libsmb2 generated files
-smb2-cat-async
-smb2-cat-sync
-smb2-statvfs-sync
-smb2-ls-async
-smb2-ls-sync
-smb2-put-async
-smb2-put-sync
-smb2-share-enum
-*.debug
-# Ignore smb2fs generated files
+# Ignore libsmb2 and smb2fs generated files
+bin
 obj
-smb2-handler
-smb2-handler.debug
-smb2-handler.map
-smb2fs
-smb2fs.debug
 # Ignore release archives
 *.lha

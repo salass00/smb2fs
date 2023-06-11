@@ -24,30 +24,31 @@ OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
 
 .PHONY: all
-all: $(TARGET)
+all: bin/$(TARGET)
 
 -include $(DEPS)
 
 obj/%.o: src/%.c
-	@mkdir -p obj
+	@mkdir -p $(dir $@)
 	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(CFLAGS) $<
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) libsmb2.a
+	$(MAKE) -C $(LIBSMB2DIR) bin/libsmb2.a
 
-$(LIBSMB2DIR)/libsmb2.a: build-libsmb2
+$(LIBSMB2DIR)/bin/libsmb2.a: build-libsmb2
 	@true
 
-$(TARGET): $(OBJS) $(LIBSMB2DIR)/libsmb2.a
+bin/$(TARGET): $(OBJS) $(LIBSMB2DIR)/bin/libsmb2.a
+	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) -o $@.debug $^ $(LIBS)
 	$(STRIP) $(STRIPFLAGS) -o $@ $@.debug
 
 .PHONY: clean
 clean:
 	$(MAKE) -C $(LIBSMB2DIR) clean
-	rm -rf $(TARGET) $(TARGET).debug obj
+	rm -rf bin obj
 
 .PHONY: revision
 revision:
