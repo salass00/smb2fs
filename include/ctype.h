@@ -23,7 +23,7 @@
 #define SMB2FS_CTYPE_H
 
 #ifndef __AROS__
-#include <ctype.h>
+#include_next <ctype.h>
 #else
 
 /* These replacement functions only support ASCII */
