@@ -214,6 +214,7 @@ struct sockaddr_storage {
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <stdlib.h>
 #if defined(__amigaos4__) || defined(__AROS__)
 #include <sys/uio.h>
 #endif
