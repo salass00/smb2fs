@@ -30,7 +30,8 @@ ifneq (,$(SYSROOT))
 	MKFLAGS += SYSROOT=$(SYSROOT)
 endif
 
-SRCS = start_os3.c main.c mui-password-req.c error-req.c time.c strdup.c malloc.c
+SRCS = start_os3.c main.c mui-password-req.c error-req.c time.c strdup.c \
+       malloc.c getpid.c
 
 OBJS = $(addprefix obj/$(CPU)/,$(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
