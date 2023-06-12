@@ -22,6 +22,8 @@ MKFLAGS =
 
 ifneq (i386,$(CPU))
 	MKFLAGS += CPU=$(CPU)
+	DEFINES += -DNO_AROSC_LIB
+	LIBS = -ldebug
 endif
 
 ifneq (,$(SYSROOT))

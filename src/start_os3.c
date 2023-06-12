@@ -31,7 +31,12 @@ struct ExecBase *SysBase;
 struct DosLibrary *DOSBase;
 struct UtilityBase *UtilityBase;
 #ifdef __AROS__
+#ifndef NO_AROSC_LIB
 struct Library *aroscbase;
+#else
+struct Library *StdlibBase;
+struct Library *CrtBase;
+#endif
 #endif
 struct Library *FileSysBoxBase;
 struct Library *SocketBase;
@@ -40,7 +45,12 @@ static const char vstring[];
 static const char dosName[];
 static const char utilityName[];
 #ifdef __AROS__
+#ifndef NO_AROSC_LIB
 static const char aroscName[];
+#else
+static const char stdlibName[];
+static const char crtName[];
+#endif
 #endif
 static const char filesysboxName[];
 static const char bsdsocketName[];
@@ -89,11 +99,24 @@ int startup(void)
 	}
 
 #ifdef __AROS__
+#ifndef NO_AROSC_LIB
 	aroscbase = OpenLibrary((STRPTR)aroscName, 41);
 	if (aroscbase == NULL)
 	{
 		goto cleanup;
 	}
+#else
+	StdlibBase = OpenLibrary((STRPTR)stdlibName, 1);
+	if (StdlibBase == NULL)
+	{
+		goto cleanup;
+	}
+	CrtBase = OpenLibrary((STRPTR)crtName, 2);
+	if (CrtBase == NULL)
+	{
+		goto cleanup;
+	}
+#endif
 #endif
 
 	me = (struct Process *)FindTask(NULL);
@@ -166,11 +189,24 @@ cleanup:
 	}
 
 #ifdef __AROS__
+#ifndef NO_AROSC_LIB
 	if (aroscbase != NULL)
 	{
 		CloseLibrary(aroscbase);
 		aroscbase = NULL;
 	}
+#else
+	if (CrtBase != NULL)
+	{
+		CloseLibrary(CrtBase);
+		CrtBase = NULL;
+	}
+	if (StdlibBase != NULL)
+	{
+		CloseLibrary(StdlibBase);
+		StdlibBase = NULL;
+	}
+#endif
 #endif
 
 	if (UtilityBase != NULL)
@@ -202,7 +238,12 @@ static const char vstring[] = VSTRING;
 static const char dosName[] = "dos.library";
 static const char utilityName[] = "utility.library";
 #ifdef __AROS__
+#ifndef NO_AROSC_LIB
 static const char aroscName[] = "arosc.library";
+#else
+static const char stdlibName[] = "stdlib.library";
+static const char crtName[] = "crt.library";
+#endif
 #endif
 static const char filesysboxName[] = "filesysbox.library";
 static const char bsdsocketName[] = "bsdsocket.library";
