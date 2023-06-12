@@ -17,7 +17,7 @@ CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -noixemul -nostartfiles
 LIBS    = -ldebug
 
-#STRIPFLAGS =
+STRIPFLAGS = -R.comment
 
 SRCS = start_os3.c main.c rt-password-req.c error-req.c time.c strlcpy.c strdup.c malloc.c
 
