@@ -4,6 +4,7 @@
 #
 
 HOST="${1:-m68k-amigaos}"
+FORMAT="${2:-lha}"
 
 if [ "$HOST" = "m68k-amigaos" ]; then
   make -f makefile.os3 all
@@ -39,12 +40,27 @@ cp -p icons-os3/def_doc.info ${DESTDIR}/smb2fs/COPYING.info
 cp -p icons-os3/def_doc.info ${DESTDIR}/smb2fs/LICENCE-libsmb2.info
 cp -p icons-os3/def_doc.info ${DESTDIR}/smb2fs/releasenotes.info
 
-rm -rf smb2fs.${HOST}.lha
-PREVDIR=`pwd`
-cd ${DESTDIR} && lha ao5 ../smb2fs.${HOST}.lha *
-cd ${PREVDIR}
+case "${FORMAT}" in
+  "7z")
+    rm -f smb2fs.${HOST}.7z
+    7za u smb2fs.${HOST}.7z ./${DESTDIR}/*
+    echo "smb2fs.${HOST}.7z created"
+    ;;
+  "iso")
+    rm -f smb2fs.${HOST}.iso
+    PREVDIR=`pwd`
+    cd ${DESTDIR} && mkisofs -R -o ../smb2fs.${HOST}.iso -V SMB2FS .
+    cd ${PREVDIR}
+    echo "smb2fs.${HOST}.iso created"
+    ;;
+  "lha")
+    rm -f smb2fs.${HOST}.lha
+    PREVDIR=`pwd`
+    cd ${DESTDIR} && lha ao5 ../smb2fs.${HOST}.lha *
+    cd ${PREVDIR}
+    echo "smb2fs.${HOST}.lha created"
+    ;;
+esac
 
 rm -rf ${DESTDIR}
-
-echo "smb2fs.${HOST}.lha created"
 
