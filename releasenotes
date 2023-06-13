@@ -60,3 +60,18 @@ smb2-handler 53.6 (25.5.2023)
   didn't seem to cause any problems on AmigaOS 4 but on AmigaOS 3 it caused an
   AN_BadFreeAddr (#0100000F) alert on filesystem exit (ACTION_DIE).
 
+
+smb2-handler 53.7 (d.m.2023)
+
+- Merged latest changes from libsmb2 git repository.
+
+- AmigaOS 3 version now uses ReqTools for the password requester.
+
+- Now uses an empty string instead of a NULL pointer when connecting to a
+  share without a password.
+
+- AROS version no longer gets SysBase by reading it from AbsExecBase.
+
+- AROS version: Replaced fcntl() and close() calls with IoctlSocket() and
+  CloseSocket().
+
