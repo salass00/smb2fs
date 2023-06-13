@@ -8,7 +8,8 @@ HOST="${1:-m68k-amigaos}"
 if [ "$HOST" = "m68k-amigaos" ]; then
   make -f makefile.os3 all
 else
-  make -f makefile.aros all
+  CPU=`echo "${HOST}" | cut -d'-' -f1`
+  make -f makefile.aros CPU=${CPU} all
 fi;
 
 LIBSMB2='libsmb2-git'
@@ -25,7 +26,7 @@ if [ "$HOST" = "m68k-amigaos" ]; then
 else
   cp -p Install-AROS ${DESTDIR}/smb2fs/Install
   cp -p README-AROS ${DESTDIR}/smb2fs/README
-  cp -p bin/smb2-handler.i386 ${DESTDIR}/smb2fs/L/smb2-handler
+  cp -p bin/smb2-handler.${CPU} ${DESTDIR}/smb2fs/L/smb2-handler
 fi;
 cp -p COPYING ${DESTDIR}/smb2fs
 cp -p ${LIBSMB2}/LICENCE-LGPL-2.1.txt ${DESTDIR}/smb2fs/LICENCE-libsmb2
