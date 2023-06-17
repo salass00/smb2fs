@@ -61,7 +61,7 @@ smb2-handler 53.6 (25.5.2023)
   AN_BadFreeAddr (#0100000F) alert on filesystem exit (ACTION_DIE).
 
 
-smb2-handler 53.7 (d.m.2023)
+smb2-handler 53.7 (17.6.2023)
 
 - Merged latest changes from libsmb2 git repository.
 
