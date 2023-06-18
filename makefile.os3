@@ -6,14 +6,14 @@ VERSION = 53
 
 LIBSMB2DIR = libsmb2-git
 
-OPTIMIZE = -O2 -noixemul -fno-common -fomit-frame-pointer
+OPTIMIZE = -O2 -fno-common -fomit-frame-pointer
 # -save-temps
 DEBUG    = -g
 INCLUDES = -I. -I./$(LIBSMB2DIR)/include
 DEFINES  = 
 WARNINGS = -Wall -Wwrite-strings -Wno-pointer-sign -Wno-int-conversion -Werror
 
-CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
+CFLAGS  = -noixemul $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -noixemul -nostartfiles
 LIBS    = -ldebug
 
