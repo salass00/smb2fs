@@ -41,19 +41,19 @@ struct Library *CrtBase;
 struct Library *FileSysBoxBase;
 struct Library *SocketBase;
 
-static const char vstring[];
-static const char dosName[];
-static const char utilityName[];
+static const TEXT vstring[];
+static const TEXT dosName[];
+static const TEXT utilityName[];
 #ifdef __AROS__
 #ifndef NO_AROSC_LIB
-static const char aroscName[];
+static const TEXT aroscName[];
 #else
-static const char stdlibName[];
-static const char crtName[];
+static const TEXT stdlibName[];
+static const TEXT crtName[];
 #endif
 #endif
-static const char filesysboxName[];
-static const char bsdsocketName[];
+static const TEXT filesysboxName[];
+static const TEXT bsdsocketName[];
 
 extern int setup_malloc(void);
 extern int cleanup_malloc(void);
@@ -86,13 +86,13 @@ int startup(void)
 		goto cleanup;
 	}
 
-	DOSBase = (struct DosLibrary *)OpenLibrary((STRPTR)dosName, 39);
+	DOSBase = (struct DosLibrary *)OpenLibrary(dosName, 39);
 	if (DOSBase == NULL)
 	{
 		goto cleanup;
 	}
 
-	UtilityBase = (struct UtilityBase *)OpenLibrary((STRPTR)utilityName, 39);
+	UtilityBase = (struct UtilityBase *)OpenLibrary(utilityName, 39);
 	if (UtilityBase == NULL)
 	{
 		goto cleanup;
@@ -100,18 +100,18 @@ int startup(void)
 
 #ifdef __AROS__
 #ifndef NO_AROSC_LIB
-	aroscbase = OpenLibrary((STRPTR)aroscName, 41);
+	aroscbase = OpenLibrary(aroscName, 41);
 	if (aroscbase == NULL)
 	{
 		goto cleanup;
 	}
 #else
-	StdlibBase = OpenLibrary((STRPTR)stdlibName, 1);
+	StdlibBase = OpenLibrary(stdlibName, 1);
 	if (StdlibBase == NULL)
 	{
 		goto cleanup;
 	}
-	CrtBase = OpenLibrary((STRPTR)crtName, 2);
+	CrtBase = OpenLibrary(crtName, 2);
 	if (CrtBase == NULL)
 	{
 		goto cleanup;
@@ -122,7 +122,7 @@ int startup(void)
 	me = (struct Process *)FindTask(NULL);
 	if (me->pr_CLI != 0)
 	{
-		PutStr((STRPTR)vstring);
+		PutStr(vstring);
 		rc = RETURN_OK;
 		goto cleanup;
 	}
@@ -142,13 +142,13 @@ int startup(void)
 
 	pkt = (struct DosPacket *)msg->mn_Node.ln_Name;
 
-	FileSysBoxBase = OpenLibrary((STRPTR)filesysboxName, 54);
+	FileSysBoxBase = OpenLibrary(filesysboxName, 54);
 	if (FileSysBoxBase == NULL)
 	{
 		goto cleanup;
 	}
 
-	SocketBase = OpenLibrary((STRPTR)bsdsocketName, 3);
+	SocketBase = OpenLibrary(bsdsocketName, 3);
 	if (SocketBase == NULL)
 	{
 		goto cleanup;
@@ -234,16 +234,16 @@ cleanup:
 void __chkabort(void) {}
 
 static const TEXT USED verstag[] = VERSTAG;
-static const char vstring[] = VSTRING;
-static const char dosName[] = "dos.library";
-static const char utilityName[] = "utility.library";
+static const TEXT vstring[] = VSTRING;
+static const TEXT dosName[] = "dos.library";
+static const TEXT utilityName[] = "utility.library";
 #ifdef __AROS__
 #ifndef NO_AROSC_LIB
-static const char aroscName[] = "arosc.library";
+static const TEXT aroscName[] = "arosc.library";
 #else
-static const char stdlibName[] = "stdlib.library";
-static const char crtName[] = "crt.library";
+static const TEXT stdlibName[] = "stdlib.library";
+static const TEXT crtName[] = "crt.library";
 #endif
 #endif
-static const char filesysboxName[] = "filesysbox.library";
-static const char bsdsocketName[] = "bsdsocket.library";
+static const TEXT filesysboxName[] = "filesysbox.library";
+static const TEXT bsdsocketName[] = "bsdsocket.library";
