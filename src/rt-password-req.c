@@ -32,12 +32,13 @@
 #include <stdio.h>
 #include <string.h>
 
+struct ReqToolsBase *ReqToolsBase = NULL;
+
 char *request_password(const char *user, const char *server)
 {
-	struct Library *ReqToolsBase;
 	char *password = NULL;
 
-	ReqToolsBase = OpenLibrary((STRPTR)"reqtools.library", 38);
+	ReqToolsBase = (struct ReqToolsBase *)OpenLibrary((STRPTR)"reqtools.library", 38);
 	if (ReqToolsBase != NULL)
 	{
 		char bodytext[256];
@@ -57,7 +58,8 @@ char *request_password(const char *user, const char *server)
 			password = strdup(buffer);
 		}
 
-		CloseLibrary(ReqToolsBase);
+		CloseLibrary((struct Library *)ReqToolsBase);
+		ReqToolsBase = NULL;
 	}
 	return password;
 }

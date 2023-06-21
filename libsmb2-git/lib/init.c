@@ -194,7 +194,7 @@ smb2_parse_args(struct smb2_context *smb2, const char *args)
 struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
 {
         struct smb2_url *u;
-        char *ptr, *tmp, *pwd, str[MAX_URL_SIZE];
+        char *ptr, *tmp, *pwd, str[MAX_URL_SIZE + 1];
         char *args;
 
         if (strncmp(url, "smb://", 6)) {
