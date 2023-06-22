@@ -47,8 +47,8 @@ char *request_password(const char *user, const char *server)
 		snprintf(bodytext, sizeof(bodytext), "Enter password for %s@%s", user, server);
 
 		result = rtGetString((UBYTE *)buffer, sizeof(buffer)-1, (char *)VERS, NULL,
-			RTGS_GadFmt, "_Ok|_Cancel",
-			RTGS_TextFmt, bodytext,
+			RTGS_GadFmt,   (IPTR)"_Ok|_Cancel",
+			RTGS_TextFmt,  (IPTR)bodytext,
 			RT_Underscore, '_',
 			TAG_END);
 

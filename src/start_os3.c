@@ -156,8 +156,8 @@ int startup(void)
 
 	if (SocketBaseTags(
 		SBTM_SETVAL(SBTC_BREAKMASK),     0, /* Disable CTRL-C checking in WaitSelect() */
-		SBTM_SETVAL(SBTC_ERRNOLONGPTR),  &errno,
-		//SBTM_SETVAL(SBTC_HERRNOLONGPTR), &h_errno // TODO
+		SBTM_SETVAL(SBTC_ERRNOLONGPTR),  (IPTR)&errno,
+		//SBTM_SETVAL(SBTC_HERRNOLONGPTR), (IPTR)&h_errno // TODO
 		TAG_END))
 	{
 		goto cleanup;
