@@ -11,7 +11,7 @@ OPTIMIZE = -O2 -fno-common -fomit-frame-pointer
 DEBUG    = -g
 INCLUDES = -I. -I./$(LIBSMB2DIR)/include
 DEFINES  = 
-WARNINGS = -Wall -Wwrite-strings -Wno-pointer-sign -Werror
+WARNINGS = -Wall -Wwrite-strings -Werror
 
 CFLAGS  = -noixemul $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -noixemul -nostartfiles
