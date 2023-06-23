@@ -937,13 +937,13 @@ static void remove_double_quotes(char *argstr)
 	end   = start + strlen(start);
 
 	/* Strip leading white space characters */
-	while (isspace(start[0]))
+	while (isspace((unsigned char)start[0]))
 	{
 		start++;
 	}
 
 	/* Strip trailing white space characters */
-	while (end > start && isspace(end[-1]))
+	while (end > start && isspace((unsigned char)end[-1]))
 	{
 		end--;
 	}
