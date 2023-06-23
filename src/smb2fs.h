@@ -38,7 +38,7 @@ void request_error(const char *error_string, ...);
 
 int smb2fs_main(struct DosPacket *pkt);
 
-#ifndef __amigaos4__
+#if !defined(__amigaos4__) && !defined(__AROS__)
 size_t strlcpy(char *dst, const char *src, size_t size);
 size_t strlcat(char *dst, const char *src, size_t size);
 #endif
