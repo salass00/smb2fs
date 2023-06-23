@@ -205,7 +205,7 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
                 smb2_set_error(smb2, "URL is too long");
                 return NULL;
         }
-        strncpy(str, url + 6, MAX_URL_SIZE);
+        strcpy(str, url + 6);
 
         args = strchr(str, '?');
         if (args) {
