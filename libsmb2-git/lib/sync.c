@@ -23,6 +23,10 @@
 #define _GNU_SOURCE
 #endif
 
+#ifdef _WINDOWS
+#define HAVE_POLL_H 1
+#endif
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -32,12 +36,13 @@
 #endif
 
 #include <errno.h>
-#if defined(HAVE_POLL_H) || defined(_WINDOWS)
-#ifdef ESP_PLATFORM
+
+#ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
-#else
-#include <poll.h>
 #endif
+
+#ifdef HAVE_POLL_H
+#include <poll.h>
 #endif
 
 #ifdef HAVE_STRING_H
@@ -46,7 +51,7 @@
 
 #include "compat.h"
 
-#ifndef PS2_IOP_PLATFORM
+#ifdef HAVE_TIME_H
 #include <time.h>
 #endif
 
@@ -67,7 +72,8 @@ static int wait_for_reply(struct smb2_context *smb2,
 	time_t t = time(NULL);
 
         while (!cb_data->is_finished) {
-                struct pollfd pfd;
+		struct pollfd pfd;
+		memset(&pfd, 0, sizeof(struct pollfd));
 
 		pfd.fd = smb2_get_fd(smb2);
 		pfd.events = smb2_which_events(smb2);
@@ -117,8 +123,8 @@ static void connect_cb(struct smb2_context *smb2, int status,
 int smb2_connect_share(struct smb2_context *smb2,
                        const char *server,
                        const char *share,
-                       const char *user,
-                       const char *password)
+					   const char *password,
+                       const char *user)
 {
         struct sync_cb_data *cb_data;
         int rc = 0;
@@ -804,7 +810,7 @@ int smb2_readlink(struct smb2_context *smb2, const char *path,
                   char *buf, uint32_t len)
 {
         struct sync_cb_data *cb_data;
-        struct readlink_cb_data rl_data;
+        struct readlink_cb_data rl_data _U_;
         int rc = 0;
 
         cb_data = calloc(1, sizeof(struct sync_cb_data));

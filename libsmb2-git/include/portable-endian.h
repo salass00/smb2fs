@@ -23,6 +23,25 @@
 
 #	include <endian.h>
 
+#elif defined(PICO_PLATFORM)
+
+#   include <machine/endian.h>
+#   include "lwip/def.h"
+
+#   define be16toh(x) PP_NTOHS(x)
+#   define htobe16(x) PP_HTONS(x)
+#   define htole16(x) (x)
+#   define le16toh(x) (x)
+
+#   define be32toh(x) PP_NTOHL(x)
+#   define htobe32(x) PP_HTONL(x)
+#   define htole32(x) (x)
+#   define le32toh(x) (x)
+
+#   define htobe64(x) be64toh(x)
+#   define htole64(x) (x)
+#   define le64toh(x) (x)
+
 #elif defined(PS2_IOP_PLATFORM)
 
 #	include <tcpip.h>
@@ -62,6 +81,25 @@
 #   define le32toh(x) (x)
 
 #   define htobe64(x) be64toh(x)
+#   define htole64(x) (x)
+#   define le64toh(x) (x)
+
+#elif defined(DC_KOS_PLATFORM)
+
+#	include <machine/endian.h>
+
+#   define be16toh(x) __builtin_bswap16(x)
+#   define htobe16(x) __builtin_bswap16(x)
+#   define htole16(x) (x)
+#   define le16toh(x) (x)
+
+#   define be32toh(x) __builtin_bswap32(x)
+#   define htobe32(x) __builtin_bswap32(x)
+#   define htole32(x) (x)
+#   define le32toh(x) (x)
+
+#   define be64toh(x) __builtin_bswap64(x)
+#   define htobe64(x) __builtin_bswap64(x)
 #   define htole64(x) (x)
 #   define le64toh(x) (x)
 
@@ -170,9 +208,9 @@
 #   define be64toh(x) __builtin_bswap64(x)
 #   define le64toh(x) (x)
 
-# else
-#   error platform not supported
-# endif
+#   else
+#     error platform not supported
+#   endif
 
 #elif defined(__amigaos4__) || defined(__AMIGA__)
 

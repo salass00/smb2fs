@@ -26,7 +26,7 @@
 #include <stdint.h>
 #endif
 
-#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
@@ -1103,11 +1103,14 @@ int nterror_to_errno(uint32_t status) {
         case SMB2_STATUS_FILE_IS_A_DIRECTORY:
         case SMB2_STATUS_FILE_RENAMED:
         case SMB2_STATUS_PROCESS_IS_TERMINATING:
+        case SMB2_STATUS_DIRECTORY_NOT_EMPTY:
         case SMB2_STATUS_CANNOT_DELETE:
         case SMB2_STATUS_FILE_DELETED:
                 return EPERM;
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
         case SMB2_STATUS_DIRECTORY_NOT_EMPTY:
                 return ENOTEMPTY;
+#endif
         case SMB2_STATUS_NO_MORE_FILES:
                 return ENODATA;
         case SMB2_STATUS_LOGON_FAILURE:
@@ -1160,13 +1163,17 @@ int nterror_to_errno(uint32_t status) {
         case SMB2_STATUS_CONNECTION_ABORTED:
         case SMB2_STATUS_NETWORK_NAME_DELETED:
         case SMB2_STATUS_INVALID_NETWORK_RESPONSE:
-                // We return this errno with the intention that caller can
-                // retry when any of these are received.
+                /* 
+                ** We return this errno with the intention that caller can
+                ** retry when any of these are received.
+                */
                 return ENETRESET;
         case SMB2_STATUS_PATH_NOT_COVERED:
-                // We do not have an errno which can be an equivalent of this
-                // NT_STATUS code. To handle this, return a code which will not
-                // be used as we are operating over a network.
+                /* 
+                ** We do not have an errno which can be an equivalent of this
+                ** NT_STATUS code. To handle this, return a code which will not
+                ** be used as we are operating over a network.
+                */
                 return ENOEXEC;
         case SMB2_STATUS_IO_TIMEOUT:
                 return ETIMEDOUT;

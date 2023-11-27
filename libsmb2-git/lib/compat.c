@@ -18,8 +18,20 @@
 
 #include "compat.h"
 
-#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
+#ifdef ESP_PLATFORM
 
+#define NEED_READV
+#define NEED_WRITEV
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <lwip/sockets.h>
+#include <sys/uio.h>
+
+#endif
+
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 #define NEED_POLL
 #ifndef __amigaos4__
 #define NEED_READV
@@ -90,88 +102,30 @@ void smb2_freeaddrinfo(struct addrinfo *res)
 
 #endif
 
-#ifdef ESP_PLATFORM
+#ifdef PICO_PLATFORM
 
-#define NEED_READV
-#define NEED_WRITEV
+#define NEED_BE64TOH
+#define NEED_POLL
 
-#include <stdio.h>
-#include <sys/types.h>
+#include "lwip/def.h"
 #include <unistd.h>
 #include <lwip/sockets.h>
-#include <sys/uio.h>
 
-#endif
+#endif /* PICO_PLATFORM */
 
 #ifdef PS2_EE_PLATFORM
-
-#define NEED_READV
-#define NEED_WRITEV
-#define NEED_POLL
-#define NEED_BE64TOH
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
-int getaddrinfo(const char *node, const char*service,
-                const struct addrinfo *hints,
-                struct addrinfo **res)
-{
-        struct sockaddr_in *sin;
-        struct hostent *host;
-        int i, ip[4];
-
-        sin = malloc(sizeof(struct sockaddr_in));
-        sin->sin_len = sizeof(struct sockaddr_in);
-        sin->sin_family=AF_INET;
-
-        /* Some error checking would be nice */
-        if (sscanf(node, "%d.%d.%d.%d", ip, ip+1, ip+2, ip+3) == 4) {
-                for (i = 0; i < 4; i++) {
-                        ((char *)&sin->sin_addr.s_addr)[i] = ip[i];
-                }
-        } else {
-                host = gethostbyname(node);
-                if (host == NULL) {
-                        return -1;
-                }
-                if (host->h_addrtype != AF_INET) {
-                        return -2;
-                }
-                memcpy(&sin->sin_addr.s_addr, host->h_addr, 4);
-        }
-
-        sin->sin_port=0;
-        if (service) {
-                sin->sin_port=htons(atoi(service));
-        } 
-
-        *res = malloc(sizeof(struct addrinfo));
-
-        (*res)->ai_family = AF_INET;
-        (*res)->ai_addrlen = sizeof(struct sockaddr_in);
-        (*res)->ai_addr = (struct sockaddr *)sin;
-
-        return 0;
-}
-
-void freeaddrinfo(struct addrinfo *res)
-{
-        free(res->ai_addr);
-        free(res);
-}
+#include <sys/time.h>
 
 #endif /* PS2_EE_PLATFORM */
 
 #ifdef PS2_IOP_PLATFORM
 #include <sysclib.h>
-
-#define NEED_BE64TOH
-#define NEED_STRDUP
-#define NEED_READV
-#define NEED_WRITEV
-#define NEED_POLL
 
 static unsigned long int next = 1; 
 
@@ -236,9 +190,6 @@ int iop_connect(int sockfd, struct sockaddr *addr, socklen_t addrlen)
 
 #ifdef PS3_PPU_PLATFORM
 
-#define NEED_READV
-#define NEED_WRITEV
-
 #include <stdlib.h>
 
 int smb2_getaddrinfo(const char *node, const char*service,
@@ -281,7 +232,13 @@ ssize_t writev(int fd, const struct iovec *vector, int count)
 {
         /* Find the total number of bytes to be written.  */
         size_t bytes = 0;
-        for (int i = 0; i < count; ++i) {
+        int i;
+        char *buffer;
+        size_t to_copy;
+        char *bp;
+		ssize_t bytes_written;
+
+        for (i = 0; i < count; ++i) {
                 /* Check for ssize_t overflow.  */
                 if (((ssize_t)-1) - bytes < vector[i].iov_len) {
                         errno = EINVAL;
@@ -290,16 +247,16 @@ ssize_t writev(int fd, const struct iovec *vector, int count)
                 bytes += vector[i].iov_len;
         }
 
-        char *buffer = (char *)malloc(bytes);
+        buffer = (char *)malloc(bytes);
         if (buffer == NULL)
                 /* XXX I don't know whether it is acceptable to try writing
                 the data in chunks.  Probably not so we just fail here.  */
                 return -1;
 
         /* Copy the data into BUFFER.  */
-        size_t to_copy = bytes;
-        char *bp = buffer;
-        for (int i = 0; i < count; ++i) {
+        to_copy = bytes;
+        bp = buffer;
+        for (i = 0; i < count; ++i) {
                 size_t copy = (vector[i].iov_len < to_copy) ? vector[i].iov_len : to_copy;
 
                 memcpy((void *)bp, (void *)vector[i].iov_base, copy);
@@ -310,7 +267,7 @@ ssize_t writev(int fd, const struct iovec *vector, int count)
                         break;
         }
 
-        ssize_t bytes_written = write(fd, buffer, bytes);
+        bytes_written = write(fd, buffer, bytes);
 
         free(buffer);
         return bytes_written;
@@ -322,7 +279,12 @@ ssize_t readv (int fd, const struct iovec *vector, int count)
 {
         /* Find the total number of bytes to be read.  */
         size_t bytes = 0;
-        for (int i = 0; i < count; ++i)
+        int i;
+        char *buffer;
+        ssize_t bytes_read;
+        char *bp;
+
+        for (i = 0; i < count; ++i)
         {
                 /* Check for ssize_t overflow.  */
                 if (((ssize_t)-1) - bytes < vector[i].iov_len) {
@@ -332,12 +294,12 @@ ssize_t readv (int fd, const struct iovec *vector, int count)
                 bytes += vector[i].iov_len;
         }
 
-        char *buffer = (char *)malloc(bytes);
+        buffer = (char *)malloc(bytes);
         if (buffer == NULL)
                 return -1;
 
         /* Read the data.  */
-        ssize_t bytes_read = read(fd, buffer, bytes);
+        bytes_read = read(fd, buffer, bytes);
         if (bytes_read < 0) {
                 free(buffer);
                 return -1;
@@ -345,8 +307,8 @@ ssize_t readv (int fd, const struct iovec *vector, int count)
 
         /* Copy the data from BUFFER into the memory specified by VECTOR.  */
         bytes = bytes_read;
-        char *bp = buffer;
-        for (int i = 0; i < count; ++i) {
+        bp = buffer;
+        for (i = 0; i < count; ++i) {
                 size_t copy = (vector[i].iov_len < bytes) ? vector[i].iov_len : bytes;
 
                 memcpy((void *)vector[i].iov_base, (void *)bp, copy);
@@ -363,6 +325,7 @@ ssize_t readv (int fd, const struct iovec *vector, int count)
 #endif
 
 #ifdef NEED_POLL
+#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 #include <proto/exec.h>
 int poll(struct pollfd *fds, unsigned int nfds, int timo)
 {
@@ -424,6 +387,60 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
         }
         return rc;
 }
+#else
+int poll(struct pollfd *fds, unsigned int nfds, int timo)
+{
+        struct timeval timeout, *toptr;
+        fd_set ifds, ofds, efds, *ip, *op;
+        unsigned int i, maxfd = 0;
+        int  rc;
+
+        FD_ZERO(&ifds);
+        FD_ZERO(&ofds);
+        FD_ZERO(&efds);
+        for (i = 0, op = ip = 0; i < nfds; ++i) {
+                fds[i].revents = 0;
+                if(fds[i].events & (POLLIN|POLLPRI)) {
+                        ip = &ifds;
+                        FD_SET(fds[i].fd, ip);
+                }
+                if(fds[i].events & POLLOUT)  {
+                        op = &ofds;
+                        FD_SET(fds[i].fd, op);
+                }
+                FD_SET(fds[i].fd, &efds);
+                if (fds[i].fd > maxfd) {
+                        maxfd = fds[i].fd;
+                }
+        } 
+
+        if(timo < 0) {
+                toptr = 0;
+        } else {
+                toptr = &timeout;
+                timeout.tv_sec = timo / 1000;
+                timeout.tv_usec = (timo - timeout.tv_sec * 1000) * 1000;
+        }
+
+        rc = select(maxfd + 1, ip, op, &efds, toptr);
+
+        if(rc <= 0)
+                return rc;
+
+        if(rc > 0)  {
+                for (i = 0; i < nfds; ++i) {
+                        int fd = fds[i].fd;
+                        if(fds[i].events & (POLLIN|POLLPRI) && FD_ISSET(fd, &ifds))
+                                fds[i].revents |= POLLIN;
+                        if(fds[i].events & POLLOUT && FD_ISSET(fd, &ofds))
+                                fds[i].revents |= POLLOUT;
+                        if(FD_ISSET(fd, &efds))
+                                fds[i].revents |= POLLHUP;
+                }
+        }
+        return rc;
+}
+#endif
 #endif
 
 #ifdef NEED_STRDUP

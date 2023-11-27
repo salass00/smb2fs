@@ -25,6 +25,10 @@
 #define _GNU_SOURCE
 #endif
 
+#ifdef _WINDOWS
+#define HAVE_SYS_SOCKET_H 1
+#endif
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -56,12 +60,15 @@
 #include <errno.h>
 #include <stdio.h>
 
-#ifndef PS2_IOP_PLATFORM
+#ifdef HAVE_TIME_H
 #include <time.h>
+#endif
+
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
-#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
@@ -75,6 +82,7 @@
 #undef freeaddrinfo
 #define close CloseSocket
 #endif
+
 
 #include "compat.h"
 
@@ -118,15 +126,15 @@ static const char SMBAppKey[] = "SMBAppKey";
 
 #ifndef O_ACCMODE
 #define O_ACCMODE (O_RDWR|O_WRONLY|O_RDONLY)
-#endif // !O_ACCMODE
+#endif /* !O_ACCMODE */
 
 #ifndef O_SYNC
 #ifndef O_DSYNC
 #define O_DSYNC		040000
-#endif // !O_DSYNC
+#endif /* !O_DSYNC */
 #define __O_SYNC	020000000
 #define O_SYNC		(__O_SYNC|O_DSYNC)
-#endif // !O_SYNC
+#endif /* !O_SYNC */
 
 const smb2_file_id compound_file_id = {
         0xff, 0xff, 0xff, 0xff,  0xff, 0xff, 0xff, 0xff,
@@ -296,7 +304,7 @@ decode_dirents(struct smb2_context *smb2, struct smb2dir *dir,
         uint32_t offset = 0;
 
         do {
-                struct smb2_iovec tmp_vec;
+                struct smb2_iovec tmp_vec _U_;
 
                 /* Make sure we do not go beyond end of vector */
                 if (offset >= vec->len) {
@@ -372,7 +380,7 @@ query_cb(struct smb2_context *smb2, int status,
         struct smb2_query_directory_reply *rep = command_data;
 
         if (status == SMB2_STATUS_SUCCESS) {
-                struct smb2_iovec vec;
+                struct smb2_iovec vec _U_;
                 struct smb2_query_directory_request req;
                 struct smb2_pdu *pdu;
 
@@ -758,7 +766,7 @@ session_setup_cb(struct smb2_context *smb2, int status,
                 }
 
                 if (smb2->hdr.flags & SMB2_FLAGS_SIGNED) {
-                        uint8_t signature[16];
+                        uint8_t signature[16] _U_;
 
                         memcpy(&signature[0], &smb2->in.iov[1].buf[48], 16);
                         if (smb2_calc_signature(smb2, &smb2->in.iov[1].buf[48],
@@ -1015,9 +1023,8 @@ connect_cb(struct smb2_context *smb2, int status,
 int
 smb2_connect_share_async(struct smb2_context *smb2,
                          const char *server,
-                         const char *share,
-                         const char *user,
-                         const char *password,
+                         const char *share, const char *user,
+						 const char *password,
                          smb2_command_cb cb, void *cb_data)
 {
         struct connect_data *c_data;
@@ -1045,11 +1052,11 @@ smb2_connect_share_async(struct smb2_context *smb2,
         if (user) {
                 smb2_set_user(smb2, user);
         }
-
+		
         if (password) {
                 smb2_set_password(smb2, password);
         }
-
+		
         c_data = calloc(1, sizeof(struct connect_data));
         if (c_data == NULL) {
                 smb2_set_error(smb2, "Failed to allocate connect_data");
@@ -2107,7 +2114,7 @@ smb2_truncate_async(struct smb2_context *smb2, const char *path,
         struct smb2_set_info_request si_req;
         struct smb2_close_request cl_req;
         struct smb2_pdu *pdu, *next_pdu;
-        struct smb2_file_end_of_file_info eofi;
+        struct smb2_file_end_of_file_info eofi _U_;
 
         if (smb2 == NULL) {
                 return -EINVAL;
@@ -2240,7 +2247,7 @@ smb2_rename_async(struct smb2_context *smb2, const char *oldpath,
         struct smb2_set_info_request si_req;
         struct smb2_close_request cl_req;
         struct smb2_pdu *pdu, *next_pdu;
-        struct smb2_file_rename_info rn_info;
+        struct smb2_file_rename_info rn_info _U_;
         uint8_t *ptr;
 
         if (smb2 == NULL) {
@@ -2343,7 +2350,7 @@ smb2_ftruncate_async(struct smb2_context *smb2, struct smb2fh *fh,
 {
         struct create_cb_data *create_data;
         struct smb2_set_info_request req;
-        struct smb2_file_end_of_file_info eofi;
+        struct smb2_file_end_of_file_info eofi _U_;
         struct smb2_pdu *pdu;
 
         if (smb2 == NULL) {
@@ -2396,7 +2403,7 @@ readlink_cb_3(struct smb2_context *smb2, int status,
 {
         struct readlink_cb_data *cb_data = private_data;
         struct smb2_reparse_data_buffer *rp = cb_data->reparse;
-        const char *target = "<unknown reparse point type>";
+        char *target = "<unknown reparse point type>";
 
         if (rp) {
                 switch (rp->reparse_tag) {
@@ -2405,7 +2412,7 @@ readlink_cb_3(struct smb2_context *smb2, int status,
                 }
         }
         cb_data->cb(smb2, -nterror_to_errno(cb_data->status),
-                    (void *)target, cb_data->cb_data);
+                    target, cb_data->cb_data);
         smb2_free_data(smb2, rp);
         free(cb_data);
 }

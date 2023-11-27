@@ -23,6 +23,11 @@
 #define _GNU_SOURCE
 #endif
 
+#ifdef _WINDOWS
+#define HAVE_POLL_H 1
+#define HAVE_SYS_SOCKET_H 1
+#endif
+
 #if !defined(__amigaos4__) && (defined(__AMIGA__) || defined(__AROS__))
 #include <sys/ioctl.h>
 #include <proto/bsdsocket.h>
@@ -31,6 +36,7 @@
 #undef HAVE_UNISTD_H
 #define close CloseSocket
 #endif
+
 
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
@@ -44,12 +50,12 @@
 #include <netinet/in.h>
 #endif
 
-#ifdef HAVE_POLL_H
-#if defined(ESP_PLATFORM)
+#ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
-#else
-#include <poll.h>
 #endif
+
+#ifdef HAVE_POLL_H
+#include <poll.h>
 #endif
 
 #ifdef HAVE_STDLIB_H
@@ -83,11 +89,11 @@
 #include "portable-endian.h"
 #include <errno.h>
 
-#if !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
-#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
@@ -107,6 +113,12 @@
  * timeout of 100ms. */
 #define HAPPY_EYEBALLS_TIMEOUT 100
 
+struct LingerStruct 
+{
+	int		l_onoff;	/* Linger active		*/
+	int		l_linger;	/* How long to linger for	*/
+};
+
 static int
 smb2_connect_async_next_addr(struct smb2_context *smb2, const struct addrinfo *base);
 
@@ -115,7 +127,7 @@ smb2_close_connecting_fds(struct smb2_context *smb2)
 {
         size_t i;
         for (i = 0; i < smb2->connecting_fds_count; ++i) {
-                int fd = smb2->connecting_fds[i];
+                t_socket fd = smb2->connecting_fds[i];
 
                 /* Don't close the connected fd */
                 if (fd == smb2->fd || fd == -1)
@@ -199,7 +211,7 @@ smb2_write_to_socket(struct smb2_context *smb2)
         }
 
         while ((pdu = smb2->outqueue) != NULL) {
-                struct iovec iov[SMB2_MAX_VECTORS];
+                struct iovec iov[SMB2_MAX_VECTORS] _U_;
                 struct iovec *tmpiov;
                 struct smb2_pdu *tmp_pdu;
                 size_t num_done = pdu->out.num_done;
@@ -295,7 +307,7 @@ typedef ssize_t (*read_func)(struct smb2_context *smb2,
 static int smb2_read_data(struct smb2_context *smb2, read_func func,
                           int has_xfrmhdr)
 {
-        struct iovec iov[SMB2_MAX_VECTORS];
+        struct iovec iov[SMB2_MAX_VECTORS] _U_;
         struct iovec *tmpiov;
         int i, niov, is_chained;
         size_t num_done;
@@ -576,7 +588,7 @@ read_more_data:
         if (smb2->sign &&
             (smb2->hdr.flags & SMB2_FLAGS_SIGNED) &&
             (smb2->hdr.command != SMB2_SESSION_SETUP) ) {
-                uint8_t signature[16];
+                uint8_t signature[16] _U_;
                 memcpy(&signature[0], &smb2->in.iov[1 + iov_offset].buf[48], 16);
                 if (smb2_calc_signature(smb2, &smb2->in.iov[1 + iov_offset].buf[48],
                                         &smb2->in.iov[1 + iov_offset],
@@ -663,7 +675,7 @@ smb2_read_from_buf(struct smb2_context *smb2)
 }
 
 static void
-smb2_close_connecting_fd(struct smb2_context *smb2, int fd)
+smb2_close_connecting_fd(struct smb2_context *smb2, t_socket fd)
 {
         size_t i;
 
@@ -680,8 +692,8 @@ smb2_close_connecting_fd(struct smb2_context *smb2, int fd)
         }
 }
 
-int
-smb2_service_fd(struct smb2_context *smb2, int fd, int revents)
+t_socket
+smb2_service_fd(struct smb2_context *smb2, t_socket fd, int revents)
 {
         int ret = 0;
 
@@ -817,7 +829,7 @@ smb2_service_fd(struct smb2_context *smb2, int fd, int revents)
         return ret;
 }
 
-int
+t_socket
 smb2_service(struct smb2_context *smb2, int revents)
 {
         if (smb2->connecting_fds_count > 0) {
@@ -834,8 +846,8 @@ set_nonblocking(t_socket fd)
         unsigned long opt = 1;
         ioctlsocket(fd, FIONBIO, &opt);
 #elif (defined(__AMIGA__) || defined(__AROS__)) && !defined(__amigaos4__)
-        unsigned long opt = 0; //1;
-        IoctlSocket(fd, FIONBIO, (char *)&opt);
+        unsigned long opt = 0;
+        IoctlSocket(fd, FIONBIO, (char *)&opt);		
 #else
         unsigned v;
         v = fcntl(fd, F_GETFL, 0);
@@ -865,10 +877,14 @@ set_tcp_sockopt(t_socket sockfd, int optname, int value)
 static int
 connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_out)
 {
-        int family, fd;
+        int family;
+        t_socket fd;
         socklen_t socksize;
         struct sockaddr_storage ss;
-
+#if 0 == CONFIGURE_OPTION_TCP_LINGER
+        int const yes = 1;
+        struct LingerStruct const lin = { 1, 0 };   /*  if l_linger is zero, sends RST after FIN */
+#endif
         memset(&ss, 0, sizeof(ss));
         switch (ai->ai_family) {
         case AF_INET:
@@ -878,15 +894,17 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
                 ((struct sockaddr_in *)&ss)->sin_len = socksize;
 #endif
                 break;
-#ifdef AF_INET6
+#ifdef AF_INET6				
         case AF_INET6:
+#if !defined(PICO_PLATFORM) || defined(LWIP_INETV6)
                 socksize = sizeof(struct sockaddr_in6);
                 memcpy(&ss, ai->ai_addr, socksize);
 #ifdef HAVE_SOCK_SIN_LEN
                 ((struct sockaddr_in6 *)&ss)->sin6_len = socksize;
 #endif
-                break;
 #endif
+                break;
+#ifdef AF_INET6
         default:
                 smb2_set_error(smb2, "Unknown address family :%d. "
                                 "Only IPv4/IPv6 supported so far.",
@@ -906,6 +924,11 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
         set_nonblocking(fd);
         set_tcp_sockopt(fd, TCP_NODELAY, 1);
 
+#if 0 == CONFIGURE_OPTION_TCP_LINGER
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
+        setsockopt(fd, SOL_SOCKET, SO_LINGER, &lin, sizeof lin);
+#endif
+
         if (connect(fd, (struct sockaddr *)&ss, socksize) != 0
 #ifndef _MSC_VER
                   && errno != EINPROGRESS) {
@@ -918,7 +941,7 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
                 return -EIO;
         }
 
-        *fd_out = fd;
+        *fd_out = (int)fd;
         return 0;
 }
 
@@ -955,28 +978,32 @@ static void interleave_addrinfo(struct addrinfo *base)
         struct addrinfo **next = &base->ai_next;
         while (*next) {
                 struct addrinfo *cur = *next;
-                // Iterate forward until we find an entry of a different family.
+                /* Iterate forward until we find an entry of a different family. */
                 if (cur->ai_family == base->ai_family) {
                         next = &cur->ai_next;
                         continue;
                 }
                 if (cur == base->ai_next) {
-                        // If the first one following base is of a different family, just
-                        // move base forward one step and continue.
+                        /* 
+                        ** If the first one following base is of a different family, just
+                        ** move base forward one step and continue.
+                        */
                         base = cur;
                         next = &base->ai_next;
                         continue;
                 }
-                // Unchain cur from the rest of the list from its current spot.
+                /* Unchain cur from the rest of the list from its current spot. */
                 *next = cur->ai_next;
-                // Hook in cur directly after base.
+                /* Hook in cur directly after base. */
                 cur->ai_next = base->ai_next;
                 base->ai_next = cur;
-                // Restart with a new base. We know that before moving the cur element,
-                // everything between the previous base and cur had the same family,
-                // different from cur->ai_family. Therefore, we can keep next pointing
-                // where it was, and continue from there with base at the one after
-                // cur.
+                /* 
+                ** Restart with a new base. We know that before moving the cur element,
+                ** everything between the previous base and cur had the same family,
+                ** different from cur->ai_family. Therefore, we can keep next pointing
+                ** where it was, and continue from there with base at the one after
+                ** cur.
+                */
                 base = cur->ai_next;
         }
 }
@@ -1025,7 +1052,7 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
         if (port != NULL) {
                 *port++ = 0;
         } else {
-                port = (char *)"445";
+                port = "445";
         }
 
         /* is it a hostname ? */
@@ -1101,7 +1128,7 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
         return err;
 }
 
-void smb2_change_events(struct smb2_context *smb2, int fd, int events)
+void smb2_change_events(struct smb2_context *smb2, t_socket fd, int events)
 {
         if (smb2->events == events) {
                 return;

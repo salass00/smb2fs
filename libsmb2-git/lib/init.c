@@ -25,6 +25,10 @@
 #define _GNU_SOURCE
 #endif
 
+#ifdef _WINDOWS
+#define HAVE_SYS_SOCKET_H 1
+#endif
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -44,11 +48,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#if !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_TIME_H
 #include <time.h>
 #endif
 
-#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
@@ -68,7 +72,7 @@
 #define srandom srand
 #define random rand
 #define getpid GetCurrentProcessId
-#endif // _MSC_VER
+#endif /* _MSC_VER */
 
 #ifdef ESP_PLATFORM
 #include <errno.h>
@@ -80,11 +84,11 @@
 
 #ifdef __ANDROID__
 #include <errno.h>
-// getlogin_r() was added in API 28
+/* getlogin_r() was added in API 28 */
 #if __ANDROID_API__ < 28
 #define getlogin_r(a,b) ENXIO
 #endif
-#endif // __ANDROID__
+#endif /* __ANDROID__ */
 
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 #include <errno.h>
@@ -196,6 +200,8 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
         struct smb2_url *u;
         char *ptr, *tmp, *pwd, str[MAX_URL_SIZE];
         char *args;
+        char *shared_folder;
+        int len_shared_folder;
 
         if (strncmp(url, "smb://", 6)) {
                 smb2_set_error(smb2, "URL does not start with 'smb://'");
@@ -223,12 +229,12 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
 
         ptr = str;
 
-        char *shared_folder = strchr(ptr, '/');
+        shared_folder = strchr(ptr, '/');
         if (!shared_folder) {
                 smb2_set_error(smb2, "Wrong URL format");
                 return NULL;
         }
-        int len_shared_folder = strlen(shared_folder);
+        len_shared_folder = strlen(shared_folder);
 
         /* domain */
         if ((tmp = strchr(ptr, ';')) != NULL && strlen(tmp) > len_shared_folder) {
@@ -239,7 +245,7 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
         /* user */
         if ((tmp = strchr(ptr, '@')) != NULL && strlen(tmp) > len_shared_folder) {
                 *(tmp++) = '\0';
-                /* password */
+				/* password */
                 if ((pwd = strchr(ptr, ':')) != NULL) {
                     *(pwd++) = '\0';
                     u->password = strdup(pwd);
@@ -279,7 +285,7 @@ void smb2_destroy_url(struct smb2_url *url)
         free(discard_const(url->domain));
         free(discard_const(url->user));
         free(discard_const(url->password));
-        free(discard_const(url->server));
+		free(discard_const(url->server));
         free(discard_const(url->share));
         free(discard_const(url->path));
         free(url);
@@ -289,7 +295,7 @@ void smb2_destroy_url(struct smb2_url *url)
 struct smb2_context *smb2_init_context(void)
 {
         struct smb2_context *smb2;
-        char buf[1024];
+        char buf[1024] _U_;
         int i, ret;
         static int ctr;
 
@@ -369,7 +375,11 @@ void smb2_destroy_context(struct smb2_context *smb2)
         if (smb2->dirs) {
                 smb2_free_all_dirs(smb2);
         }
-
+        if (smb2->connect_cb) {
+           smb2->connect_cb(smb2, SMB2_STATUS_CANCELLED,
+                         NULL, smb2->connect_data);
+           smb2->connect_cb = NULL;
+        }
         free(smb2->session_key);
         smb2->session_key = NULL;
 
@@ -418,9 +428,9 @@ struct smb2_iovec *smb2_add_iovector(struct smb2_context *smb2,
         return iov;
 }
 
+#ifndef PS2_IOP_PLATFORM
 static void smb2_set_error_string(struct smb2_context *smb2, const char * error_string, va_list args)
 {
-#ifndef PS2_IOP_PLATFORM
         char errstr[MAX_ERROR_SIZE] = {0};
 
         if (vsnprintf(errstr, MAX_ERROR_SIZE, error_string, args) < 0) {
@@ -428,10 +438,8 @@ static void smb2_set_error_string(struct smb2_context *smb2, const char * error_
                         MAX_ERROR_SIZE);
         }
         strncpy(smb2->error_string, errstr, MAX_ERROR_SIZE);
-#else /* PS2_IOP_PLATFORM */
-        /* Dont have vs[n]printf on PS2 IOP. */
-#endif /* PS2_IOP_PLATFORM */
 }
+#endif /* PS2_IOP_PLATFORM */
 
 void smb2_set_error(struct smb2_context *smb2, const char *error_string, ...)
 {
@@ -494,7 +502,7 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
         int finished;
 
 #ifdef _MSC_UWP
-// GetEnvironmentVariable is not available for UWP up to 10.0.16299 SDK
+/* GetEnvironmentVariable is not available for UWP up to 10.0.16299 SDK */
 #if defined(NTDDI_WIN10_RS3) && (NTDDI_VERSION >= NTDDI_WIN10_RS3)
         uint32_t name_len = GetEnvironmentVariableA("NTLM_USER_FILE", NULL, 0);
         if (name_len > 0) {
@@ -560,11 +568,6 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
         }
         fclose(fh);
 }
-#else /* !PS2_IOP_PLATFORM */
-static void smb2_set_password_from_file(struct smb2_context *smb2)
-{
-        return;
-}
 #endif /* !PS2_IOP_PLATFORM */
 
 void smb2_set_user(struct smb2_context *smb2, const char *user)
@@ -577,7 +580,9 @@ void smb2_set_user(struct smb2_context *smb2, const char *user)
                 return;
         }
         smb2->user = strdup(user);
+#if && !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
         smb2_set_password_from_file(smb2);
+#endif
 }
 
 void smb2_set_password(struct smb2_context *smb2, const char *password)
