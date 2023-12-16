@@ -25,11 +25,8 @@
 #include <sys/time.h>
 
 #include <ps2ip.h>
-#define write(a,b,c) lwip_write(a,b,c)
-#define read(a,b,c) lwip_read(a,b,c)
-#undef gethostbyname /* PS2SDK has gethostbyname defined */
-#define gethostbyname(a) lwip_gethostbyname(a)
-#define close(a) lwip_close(a)
+#include <fcntl.h>
+#include <unistd.h>
 
 #define getlogin_r(a,b) ENXIO
 
@@ -54,11 +51,6 @@ struct iovec {
 
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
-
-int getaddrinfo(const char *node, const char*service,
-                const struct addrinfo *hints,
-                struct addrinfo **res);
-void freeaddrinfo(struct addrinfo *res);
 
 long long int be64toh(long long int x);
 
