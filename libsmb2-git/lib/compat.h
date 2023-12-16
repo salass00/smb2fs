@@ -27,6 +27,7 @@
 #include <ps2ip.h>
 #define write(a,b,c) lwip_write(a,b,c)
 #define read(a,b,c) lwip_read(a,b,c)
+#undef gethostbyname /* PS2SDK has gethostbyname defined */
 #define gethostbyname(a) lwip_gethostbyname(a)
 #define close(a) lwip_close(a)
 
