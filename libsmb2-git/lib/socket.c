@@ -44,7 +44,7 @@
 #include <netinet/in.h>
 #endif
 
-#if defined(HAVE_SYS_POLL_H) || defined(ESP_PLATFORM)
+#if defined(HAVE_SYS_POLL_H)
 #include <sys/poll.h>
 #elif defined(HAVE_POLL_H) || defined(_WINDOWS)
 #include <poll.h>
