@@ -19,7 +19,11 @@
 #ifndef _SMB2_H_
 #define _SMB2_H_
 
+#ifdef __APPLE__
+#include <smb2-errors.h>
+#else
 #include <smb2/smb2-errors.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,20 +53,20 @@ struct smb2_error_reply {
 
 enum smb2_command {
         SMB2_NEGOTIATE       = 0,
-        SMB2_SESSION_SETUP,
-        SMB2_LOGOFF,
-        SMB2_TREE_CONNECT,
-        SMB2_TREE_DISCONNECT,
-        SMB2_CREATE,
-        SMB2_CLOSE,
-        SMB2_FLUSH,
-        SMB2_READ,
-        SMB2_WRITE,
+        SMB2_SESSION_SETUP = 1,
+        SMB2_LOGOFF = 2,
+        SMB2_TREE_CONNECT = 3,
+        SMB2_TREE_DISCONNECT = 4,
+        SMB2_CREATE = 5,
+        SMB2_CLOSE = 6,
+        SMB2_FLUSH = 7,
+        SMB2_READ = 8,
+        SMB2_WRITE = 9,
         /* SMB2_LOCK, */
         SMB2_IOCTL           = 11,
         /* SMB2_CANCEL, */
         SMB2_ECHO            = 13,
-        SMB2_QUERY_DIRECTORY,
+        SMB2_QUERY_DIRECTORY = 14,
         /* SMB2_CHANGE_NOTIFY, */
         SMB2_QUERY_INFO      = 16,
         SMB2_SET_INFO        = 17,
@@ -586,12 +590,21 @@ struct smb2_set_info_request {
  */
 #define SID_ID_AUTH_LEN 6
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning( disable : 4200 ) /* Silence c4200 warning. */
+#endif
+
 struct smb2_sid {
         uint8_t revision;
         uint8_t sub_auth_count;
         uint8_t id_auth[SID_ID_AUTH_LEN];
         uint32_t sub_auth[0];
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 /*
  * ACE

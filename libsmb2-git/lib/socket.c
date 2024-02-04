@@ -23,20 +23,6 @@
 #define _GNU_SOURCE
 #endif
 
-#if !defined(__amigaos4__) && (defined(__AMIGA__) || defined(__AROS__))
-#include <sys/ioctl.h>
-#include <proto/bsdsocket.h>
-#undef getaddrinfo
-#undef freeaddrinfo
-#undef HAVE_UNISTD_H
-#define close CloseSocket
-#endif
-
-#ifdef _WINDOWS
-#define HAVE_POLL_H 1
-#define HAVE_SYS_SOCKET_H 1
-#endif
-
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
@@ -81,6 +67,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -90,6 +80,10 @@
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+
+#ifdef HAVE_SYS_FCNTL_H
+#include <sys/fcntl.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
@@ -111,6 +105,12 @@
  * Since the smb is most likely used on local network, use an aggressive
  * timeout of 100ms. */
 #define HAPPY_EYEBALLS_TIMEOUT 100
+
+struct LingerStruct 
+{
+	int		l_onoff;	/* Linger active		*/
+	int		l_linger;	/* How long to linger for	*/
+};
 
 static int
 smb2_connect_async_next_addr(struct smb2_context *smb2, const struct addrinfo *base);
@@ -136,7 +136,9 @@ smb2_close_connecting_fds(struct smb2_context *smb2)
         smb2->connecting_fds_count = 0;
 
         if (smb2->addrinfos != NULL) {
+#ifndef PS2IPS
                 freeaddrinfo(smb2->addrinfos);
+#endif
                 smb2->addrinfos = NULL;
         }
         smb2->next_addrinfo = NULL;
@@ -334,7 +336,7 @@ read_more_data:
         /* Read into our trimmed iovectors */
         count = func(smb2, tmpiov, niov);
         if (count < 0) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_XBOX)
                 int err = WSAGetLastError();
                 if (err == WSAEINTR || err == WSAEWOULDBLOCK) {
 #else
@@ -835,12 +837,12 @@ smb2_service(struct smb2_context *smb2, int revents)
 static void
 set_nonblocking(t_socket fd)
 {
-#if defined(WIN32)
+#if defined(WIN32) || defined(_XBOX) || defined(PS2_EE_PLATFORM) && defined(PS2IPS)
         unsigned long opt = 1;
         ioctlsocket(fd, FIONBIO, &opt);
 #elif (defined(__AMIGA__) || defined(__AROS__)) && !defined(__amigaos4__)
-        unsigned long opt = 0; //1;
-        IoctlSocket(fd, FIONBIO, (char *)&opt);
+        unsigned long opt = 0;
+        IoctlSocket(fd, FIONBIO, (char *)&opt);		
 #else
         unsigned v;
         v = fcntl(fd, F_GETFL, 0);
@@ -852,9 +854,8 @@ static int
 set_tcp_sockopt(t_socket sockfd, int optname, int value)
 {
         int level;
-#ifndef SOL_TCP
+#if !defined(SOL_TCP)
         struct protoent *buf;
-
         if ((buf = getprotobyname("tcp")) != NULL) {
                 level = buf->p_proto;
         } else {
@@ -876,8 +877,10 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
         struct sockaddr_storage ss;
 #if 0 == CONFIGURE_OPTION_TCP_LINGER
         int const yes = 1;
-        struct LingerStruct { int l_onoff; /* linger active */ int l_linger; /* how many seconds to linger for */ };
-        struct LingerStruct const lin = { .l_onoff  = 1, .l_linger = 0 };   /*  if l_linger is zero, sends RST after FIN */
+        struct LingerStruct const lin = { 1, 0 };   /*  if l_linger is zero, sends RST after FIN */
+#endif
+#ifdef _XBOX
+        BOOL bBroadcast = TRUE;
 #endif
         memset(&ss, 0, sizeof(ss));
         switch (ai->ai_family) {
@@ -888,12 +891,14 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
                 ((struct sockaddr_in *)&ss)->sin_len = socksize;
 #endif
                 break;
-#ifdef AF_INET6
+#ifdef AF_INET6				
         case AF_INET6:
+#if !defined(PICO_PLATFORM) || defined(LWIP_INETV6)
                 socksize = sizeof(struct sockaddr_in6);
                 memcpy(&ss, ai->ai_addr, socksize);
 #ifdef HAVE_SOCK_SIN_LEN
                 ((struct sockaddr_in6 *)&ss)->sin6_len = socksize;
+#endif
 #endif
                 break;
 #endif
@@ -913,9 +918,23 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
                 return -EIO;
         }
 
+#ifdef _XBOX		
+        if(setsockopt(fd, SOL_SOCKET, 0x5801, (PCSTR)&bBroadcast, sizeof(BOOL) ) != 0 )
+        {
+#if 0			
+                return 0;
+#endif
+        }
+        if(setsockopt(fd, SOL_SOCKET, 0x5802, (PCSTR)&bBroadcast, sizeof(BOOL)) != 0)
+        {
+#if 0 			
+                return 0;
+#endif
+        }
+#endif
+
         set_nonblocking(fd);
         set_tcp_sockopt(fd, TCP_NODELAY, 1);
-
 #if 0 == CONFIGURE_OPTION_TCP_LINGER
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
         setsockopt(fd, SOL_SOCKET, SO_LINGER, &lin, sizeof lin);
@@ -970,28 +989,32 @@ static void interleave_addrinfo(struct addrinfo *base)
         struct addrinfo **next = &base->ai_next;
         while (*next) {
                 struct addrinfo *cur = *next;
-                // Iterate forward until we find an entry of a different family.
+                /* Iterate forward until we find an entry of a different family. */
                 if (cur->ai_family == base->ai_family) {
                         next = &cur->ai_next;
                         continue;
                 }
                 if (cur == base->ai_next) {
-                        // If the first one following base is of a different family, just
-                        // move base forward one step and continue.
+                        /* 
+                        ** If the first one following base is of a different family, just
+                        ** move base forward one step and continue.
+                        */
                         base = cur;
                         next = &base->ai_next;
                         continue;
                 }
-                // Unchain cur from the rest of the list from its current spot.
+                /* Unchain cur from the rest of the list from its current spot. */
                 *next = cur->ai_next;
-                // Hook in cur directly after base.
+                /* Hook in cur directly after base. */
                 cur->ai_next = base->ai_next;
                 base->ai_next = cur;
-                // Restart with a new base. We know that before moving the cur element,
-                // everything between the previous base and cur had the same family,
-                // different from cur->ai_family. Therefore, we can keep next pointing
-                // where it was, and continue from there with base at the one after
-                // cur.
+                /* 
+                ** Restart with a new base. We know that before moving the cur element,
+                ** everything between the previous base and cur had the same family,
+                ** different from cur->ai_family. Therefore, we can keep next pointing
+                ** where it was, and continue from there with base at the one after
+                ** cur.
+                */
                 base = cur->ai_next;
         }
 }
@@ -1040,14 +1063,18 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
         if (port != NULL) {
                 *port++ = 0;
         } else {
-                port = (char *)"445";
+                port = "445";
         }
 
+#ifdef PS2IPS
+        {
+#else
         /* is it a hostname ? */
         err = getaddrinfo(host, port, NULL, &smb2->addrinfos);
         if (err != 0) {
+#endif
                 free(addr);
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_XBOX)
                 if (err == WSANOTINITIALISED)
                 {
                         smb2_set_error(smb2, "Winsock was not initialized. "
@@ -1058,14 +1085,14 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
 #endif
                 {
                         smb2_set_error(smb2, "Invalid address:%s  "
-                                "Can not resolv into IPv4/v6.", server);
+                                "Can not resolve into IPv4/v6.", server);
                 }
                 switch (err) {
                     case EAI_AGAIN:
                         return -EAGAIN;
                     case EAI_NONAME:
 #ifdef EAI_NODATA
-#if EAI_NODATA != EAI_NONAME /* Equal in MSCV */
+#if EAI_NODATA != EAI_NONAME /* Equal in MSVC */
                     case EAI_NODATA:
 #endif
 #endif
@@ -1094,7 +1121,9 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
                 addr_count++;
         smb2->connecting_fds = malloc(sizeof(t_socket) * addr_count);
         if (smb2->connecting_fds == NULL) {
+#ifndef PS2IPS
                 freeaddrinfo(smb2->addrinfos);
+#endif
                 smb2->addrinfos = NULL;
                 return -ENOMEM;
         }
@@ -1107,8 +1136,9 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
         } else {
                 free(smb2->connecting_fds);
                 smb2->connecting_fds = NULL;
-
+#ifndef PS2IPS
                 freeaddrinfo(smb2->addrinfos);
+#endif
                 smb2->addrinfos = NULL;
                 smb2->next_addrinfo = NULL;
         }

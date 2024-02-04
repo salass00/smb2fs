@@ -25,10 +25,6 @@
 #define _GNU_SOURCE
 #endif
 
-#ifdef _WINDOWS
-#define HAVE_SYS_SOCKET_H 1
-#endif
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -57,6 +53,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 
@@ -64,23 +64,24 @@
 #include <time.h>
 #endif
 
-#if defined(HAVE_FCNTL_H) || defined(_MSC_VER)
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+
+#ifdef HAVE_SYS_FCNTL_H
+#include <sys/fcntl.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
 
-#if defined(_WIN32) || defined(__AROS__)
+#if defined(_WIN32) || defined(_XBOX) || defined(__AROS__)
 #include "asprintf.h"
-#endif
-
-#if !defined(__amigaos4__) && (defined(__AMIGA__) || defined(__AROS__))
-#include <proto/bsdsocket.h>
-#undef getaddrinfo
-#undef freeaddrinfo
-#define close CloseSocket
 #endif
 
 #include "compat.h"
@@ -117,23 +118,24 @@ static const char SmbSign[] = "SmbSign";
 static const char SMB2AESCCM[] = "SMB2AESCCM";
 static const char ServerOut[] = "ServerOut";
 static const char ServerIn[] = "ServerIn ";
-/* The following strings will be used for deriving other keys
+/* The following strings will be used for deriving other keys */
+#if 0
 static const char SMB2APP[] = "SMB2APP";
 static const char SmbRpc[] = "SmbRpc";
 static const char SMBAppKey[] = "SMBAppKey";
-*/
+#endif
 
 #ifndef O_ACCMODE
 #define O_ACCMODE (O_RDWR|O_WRONLY|O_RDONLY)
-#endif // !O_ACCMODE
+#endif /* !O_ACCMODE */
 
 #ifndef O_SYNC
 #ifndef O_DSYNC
 #define O_DSYNC		040000
-#endif // !O_DSYNC
+#endif /* !O_DSYNC */
 #define __O_SYNC	020000000
 #define O_SYNC		(__O_SYNC|O_DSYNC)
-#endif // !O_SYNC
+#endif /* !O_SYNC */
 
 const smb2_file_id compound_file_id = {
         0xff, 0xff, 0xff, 0xff,  0xff, 0xff, 0xff, 0xff,
@@ -1023,8 +1025,10 @@ int
 smb2_connect_share_async(struct smb2_context *smb2,
                          const char *server,
                          const char *share,
-                         const char *user,
-                         const char *password,
+						 const char *user,
+#ifdef USE_PASSWORD
+                         const char *password,						 
+#endif
                          smb2_command_cb cb, void *cb_data)
 {
         struct connect_data *c_data;
@@ -1052,11 +1056,11 @@ smb2_connect_share_async(struct smb2_context *smb2,
         if (user) {
                 smb2_set_user(smb2, user);
         }
-
+#ifdef USE_PASSWORD
         if (password) {
                 smb2_set_password(smb2, password);
         }
-
+#endif
         c_data = calloc(1, sizeof(struct connect_data));
         if (c_data == NULL) {
                 smb2_set_error(smb2, "Failed to allocate connect_data");
@@ -2350,7 +2354,7 @@ smb2_ftruncate_async(struct smb2_context *smb2, struct smb2fh *fh,
 {
         struct create_cb_data *create_data;
         struct smb2_set_info_request req;
-        struct smb2_file_end_of_file_info eofi;
+        struct smb2_file_end_of_file_info eofi _U_;
         struct smb2_pdu *pdu;
 
         if (smb2 == NULL) {
@@ -2403,7 +2407,7 @@ readlink_cb_3(struct smb2_context *smb2, int status,
 {
         struct readlink_cb_data *cb_data = private_data;
         struct smb2_reparse_data_buffer *rp = cb_data->reparse;
-        const char *target = "<unknown reparse point type>";
+        char *target = "<unknown reparse point type>";
 
         if (rp) {
                 switch (rp->reparse_tag) {
@@ -2412,7 +2416,7 @@ readlink_cb_3(struct smb2_context *smb2, int status,
                 }
         }
         cb_data->cb(smb2, -nterror_to_errno(cb_data->status),
-                    (void *)target, cb_data->cb_data);
+                    target, cb_data->cb_data);
         smb2_free_data(smb2, rp);
         free(cb_data);
 }
