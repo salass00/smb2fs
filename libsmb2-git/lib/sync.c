@@ -23,10 +23,6 @@
 #define _GNU_SOURCE
 #endif
 
-#ifdef _WINDOWS
-#define HAVE_POLL_H 1
-#endif
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -37,7 +33,7 @@
 
 #include <errno.h>
 
-#if defined(HAVE_SYS_POLL_H)
+#ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
 #endif
 
@@ -53,6 +49,10 @@
 
 #ifdef HAVE_TIME_H
 #include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
 #endif
 
 #include "smb2.h"
@@ -90,6 +90,13 @@ static int wait_for_reply(struct smb2_context *smb2,
 			smb2_set_error(smb2, "Timeout expired and no connection exists\n");
 			return -1;
 		}
+#if defined (PS2_EE_PLATFORM) && defined(PS2IPS)
+                /* select() is broken on ps2ips :-( */
+                pfd.revents |= POLLOUT;
+                if (smb2->fd != -1) {
+                        pfd.revents |= POLLIN;
+                }
+#endif                
                 if (pfd.revents == 0) {
                         continue;
                 }
@@ -122,9 +129,11 @@ static void connect_cb(struct smb2_context *smb2, int status,
  */
 int smb2_connect_share(struct smb2_context *smb2,
                        const char *server,
-                       const char *share,
+                       const char *share,					   
                        const char *user,
+#ifdef USE_PASSWORD
                        const char *password)
+#endif
 {
         struct sync_cb_data *cb_data;
         int rc = 0;
@@ -134,9 +143,11 @@ int smb2_connect_share(struct smb2_context *smb2,
                 smb2_set_error(smb2, "Failed to allocate sync_cb_data");
                 return -ENOMEM;
         }
-
-	rc = smb2_connect_share_async(smb2, server, share, user, password,
-                                      connect_cb, cb_data);
+#ifdef USE_PASSWORD
+	rc = smb2_connect_share_async(smb2, server, share, user, password, connect_cb, cb_data);
+#else
+	rc = smb2_connect_share_async(smb2, server, share, user, connect_cb, cb_data);
+#endif
         if (rc < 0) {
                 goto out;
 	}

@@ -15,11 +15,11 @@
 #include <stdint.h>
 #endif
 
-#if (__BYTE_ORDER == __BIG_ENDIAN)
+#if (__BYTE_ORDER == __BIG_ENDIAN) || defined(XBOX_360_PLATFORM)
 #  define WORDS_BIGENDIAN 1
 #endif
 
-#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM)
+#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM) && !defined(PICO_PLATFORM)
 typedef uint32_t UWORD32;
 #endif
 

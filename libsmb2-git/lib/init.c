@@ -25,10 +25,6 @@
 #define _GNU_SOURCE
 #endif
 
-#ifdef _WINDOWS
-#define HAVE_SYS_SOCKET_H 1
-#endif
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -45,15 +41,31 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
 #include <stdarg.h>
 #include <stdio.h>
 
-#if !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_TIME_H
 #include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
+
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
+#ifdef HAVE_SYS_ERRNO_H
+#include <sys/errno.h>
 #endif
 
 #include "compat.h"
@@ -65,43 +77,6 @@
 #define MAX_URL_SIZE 1024
 
 #include "compat.h"
-
-#ifdef _MSC_VER
-#include <errno.h>
-#define getlogin_r(a,b) ENXIO
-#define srandom srand
-#define random rand
-#define getpid GetCurrentProcessId
-#endif // _MSC_VER
-
-#ifdef ESP_PLATFORM
-#include <errno.h>
-#include <esp_system.h>
-#define random esp_random
-#define srandom(seed)
-#define getlogin_r(a,b) ENXIO
-#endif
-
-#ifdef __ANDROID__
-#include <errno.h>
-// getlogin_r() was added in API 28
-#if __ANDROID_API__ < 28
-#define getlogin_r(a,b) ENXIO
-#endif
-#endif // __ANDROID__
-
-#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
-#include <errno.h>
-#define getlogin_r(a,b) ENXIO
-#ifndef __AROS__
-#define srandom srand
-#define random rand
-#endif
-#ifndef __amigaos4__
-#include <proto/bsdsocket.h>
-#define close CloseSocket
-#endif
-#endif // __amigaos4__
 
 static int
 smb2_parse_args(struct smb2_context *smb2, const char *args)
@@ -198,7 +173,11 @@ smb2_parse_args(struct smb2_context *smb2, const char *args)
 struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
 {
         struct smb2_url *u;
+#ifdef USE_PASSWORD
         char *ptr, *tmp, *pwd, str[MAX_URL_SIZE];
+#else
+        char *ptr, *tmp, str[MAX_URL_SIZE];
+#endif
         char *args;
         char *shared_folder;
         int len_shared_folder;
@@ -210,10 +189,10 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
         if (strlen(url + 6) >= MAX_URL_SIZE) {
                 smb2_set_error(smb2, "URL is too long");
                 return NULL;
-        }
+        }  
         strcpy(str, url + 6);
-
-        args = strchr(str, '?');
+        
+		args = strchr(str, '?');
         if (args) {
                 *(args++) = '\0';
                 if (smb2_parse_args(smb2, args) != 0) {
@@ -245,11 +224,13 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
         /* user */
         if ((tmp = strchr(ptr, '@')) != NULL && strlen(tmp) > len_shared_folder) {
                 *(tmp++) = '\0';
+#ifdef USE_PASSWORD
                 /* password */
                 if ((pwd = strchr(ptr, ':')) != NULL) {
                     *(pwd++) = '\0';
                     u->password = strdup(pwd);
                 }
+#endif
                 u->user = strdup(ptr);
                 ptr = tmp;
         }
@@ -284,7 +265,9 @@ void smb2_destroy_url(struct smb2_url *url)
         }
         free(discard_const(url->domain));
         free(discard_const(url->user));
+#ifdef USE_PASSWORD
         free(discard_const(url->password));
+#endif
         free(discard_const(url->server));
         free(discard_const(url->share));
         free(discard_const(url->path));
@@ -300,7 +283,7 @@ struct smb2_context *smb2_init_context(void)
         static int ctr;
 
         srandom(time(NULL) ^ getpid() ^ ctr++);
-
+        
         smb2 = calloc(1, sizeof(struct smb2_context));
         if (smb2 == NULL) {
                 return NULL;
@@ -432,9 +415,12 @@ struct smb2_iovec *smb2_add_iovector(struct smb2_context *smb2,
 static void smb2_set_error_string(struct smb2_context *smb2, const char * error_string, va_list args)
 {
         char errstr[MAX_ERROR_SIZE] = {0};
-
-        if (vsnprintf(errstr, MAX_ERROR_SIZE, error_string, args) < 0) {
-                strncpy(errstr, "could not format error string!",
+#ifdef _XBOX
+        if (_vsnprintf(errstr, MAX_ERROR_SIZE, error_string, args) < 0) {
+#else
+	if (vsnprintf(errstr, MAX_ERROR_SIZE, error_string, args) < 0) {
+#endif
+			strncpy(errstr, "could not format error string!",
                         MAX_ERROR_SIZE);
         }
         strncpy(smb2->error_string, errstr, MAX_ERROR_SIZE);
@@ -492,7 +478,7 @@ void smb2_set_security_mode(struct smb2_context *smb2, uint16_t security_mode)
         smb2->security_mode = security_mode;
 }
 
-#if !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
+#if !defined(_XBOX) && !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
 static void smb2_set_password_from_file(struct smb2_context *smb2)
 {
         char *name = NULL;
@@ -502,7 +488,7 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
         int finished;
 
 #ifdef _MSC_UWP
-// GetEnvironmentVariable is not available for UWP up to 10.0.16299 SDK
+/* GetEnvironmentVariable is not available for UWP up to 10.0.16299 SDK */
 #if defined(NTDDI_WIN10_RS3) && (NTDDI_VERSION >= NTDDI_WIN10_RS3)
         uint32_t name_len = GetEnvironmentVariableA("NTLM_USER_FILE", NULL, 0);
         if (name_len > 0) {
@@ -568,11 +554,6 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
         }
         fclose(fh);
 }
-#else /* !PS2_IOP_PLATFORM */
-static void smb2_set_password_from_file(struct smb2_context *smb2)
-{
-        return;
-}
 #endif /* !PS2_IOP_PLATFORM */
 
 void smb2_set_user(struct smb2_context *smb2, const char *user)
@@ -585,7 +566,9 @@ void smb2_set_user(struct smb2_context *smb2, const char *user)
                 return;
         }
         smb2->user = strdup(user);
+#if !defined(_XBOX) && !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
         smb2_set_password_from_file(smb2);
+#endif
 }
 
 void smb2_set_password(struct smb2_context *smb2, const char *password)

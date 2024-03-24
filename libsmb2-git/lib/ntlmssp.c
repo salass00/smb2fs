@@ -51,12 +51,20 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
 #include <ctype.h>
 #include "portable-endian.h"
 #include <stdio.h>
 
 #ifdef HAVE_TIME_H
 #include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
 #endif
 
 #include "compat.h"
@@ -179,9 +187,9 @@ ntlm_negotiate_message(struct smb2_context *smb2, struct auth_data *auth_data)
 
         u32 = NTLMSSP_NEGOTIATE_128|
                 NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY|
-                //NTLMSSP_NEGOTIATE_ALWAYS_SIGN|
+                /* NTLMSSP_NEGOTIATE_ALWAYS_SIGN| */
                 NTLMSSP_NEGOTIATE_SEAL|
-                //NTLMSSP_NEGOTIATE_SIGN|
+                /* NTLMSSP_NEGOTIATE_SIGN| */
                 NTLMSSP_REQUEST_TARGET|NTLMSSP_NEGOTIATE_OEM|
                 NTLMSSP_NEGOTIATE_UNICODE;
         u32 = htole32(u32);
@@ -533,8 +541,9 @@ encode_ntlm_auth(struct smb2_context *smb2, time_t ti,
         /* negotiate flags */
         u32 = NTLMSSP_NEGOTIATE_128|
                 NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY|
-                //NTLMSSP_NEGOTIATE_ALWAYS_SIGN|
-                //NTLMSSP_NEGOTIATE_SIGN|
+                /* NTLMSSP_NEGOTIATE_ALWAYS_SIGN| 
+                   NTLMSSP_NEGOTIATE_SIGN| 
+                */
                 NTLMSSP_REQUEST_TARGET|NTLMSSP_NEGOTIATE_OEM|
                 NTLMSSP_NEGOTIATE_UNICODE;
         if (anonymous)
