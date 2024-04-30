@@ -105,13 +105,13 @@
  * Since the smb is most likely used on local network, use an aggressive
  * timeout of 100ms. */
 #define HAPPY_EYEBALLS_TIMEOUT 100
-
-struct LingerStruct 
+#if !defined(HAVE_LINGER) && !defined(_WINDOWS)
+struct linger 
 {
 	int		l_onoff;	/* Linger active		*/
 	int		l_linger;	/* How long to linger for	*/
 };
-
+#endif
 static int
 smb2_connect_async_next_addr(struct smb2_context *smb2, const struct addrinfo *base);
 
@@ -123,7 +123,7 @@ smb2_close_connecting_fds(struct smb2_context *smb2)
                 t_socket fd = smb2->connecting_fds[i];
 
                 /* Don't close the connected fd */
-                if (fd == smb2->fd || fd == -1)
+                if (fd == smb2->fd || !VALID_SOCKET(fd))
                         continue;
 
                 if (smb2->change_fd) {
@@ -160,7 +160,7 @@ smb2_get_credit_charge(struct smb2_context *smb2, struct smb2_pdu *pdu)
 int
 smb2_which_events(struct smb2_context *smb2)
 {
-        int events = smb2->fd != -1 ? POLLIN : POLLOUT;
+        int events = VALID_SOCKET(smb2->fd) ? POLLIN : POLLOUT;
 
         if (smb2->outqueue != NULL &&
             smb2_get_credit_charge(smb2, smb2->outqueue) <= smb2->credits) {
@@ -172,7 +172,7 @@ smb2_which_events(struct smb2_context *smb2)
 
 t_socket smb2_get_fd(struct smb2_context *smb2)
 {
-        if (smb2->fd != -1) {
+        if (VALID_SOCKET(smb2->fd)) {
                 return smb2->fd;
         } else if (smb2->connecting_fds_count > 0) {
                 return smb2->connecting_fds[0];
@@ -184,7 +184,7 @@ t_socket smb2_get_fd(struct smb2_context *smb2)
 const t_socket *
 smb2_get_fds(struct smb2_context *smb2, size_t *fd_count, int *timeout)
 {
-        if (smb2->fd != -1) {
+        if (VALID_SOCKET(smb2->fd)) {
                 *fd_count = 1;
                 *timeout = -1;
                 return &smb2->fd;
@@ -200,7 +200,7 @@ smb2_write_to_socket(struct smb2_context *smb2)
 {
         struct smb2_pdu *pdu;
 
-        if (smb2->fd == -1) {
+        if (!VALID_SOCKET(smb2->fd)) {
                 smb2_set_error(smb2, "trying to write but not connected");
                 return -1;
         }
@@ -218,7 +218,7 @@ smb2_write_to_socket(struct smb2_context *smb2)
                         credit_charge += pdu->header.credit_charge;
                 }
                 if (smb2->dialect > SMB2_VERSION_0202) {
-                        if (credit_charge > smb2->credits) {
+                        if (credit_charge > (uint32_t)smb2->credits) {
                                 return 0;
                         }
                 }
@@ -237,8 +237,12 @@ smb2_write_to_socket(struct smb2_context *smb2)
                                 for (i = 0; i < tmp_pdu->out.niov;
                                      i++, niov++) {
                                         iov[niov].iov_base = tmp_pdu->out.iov[i].buf;
-                                        iov[niov].iov_len = tmp_pdu->out.iov[i].len;
-                                        spl += tmp_pdu->out.iov[i].len;
+#ifdef _WIN32
+                                        iov[niov].iov_len = (unsigned long)tmp_pdu->out.iov[i].len;
+#else
+                                        iov[niov].iov_len = (size_t)tmp_pdu->out.iov[i].len;
+#endif
+                                        spl += (uint32_t)tmp_pdu->out.iov[i].len;
                                 }
                         }
                 }
@@ -259,8 +263,11 @@ smb2_write_to_socket(struct smb2_context *smb2)
 
                 /* Adjust the first vector to send */
                 tmpiov->iov_base = (char *)tmpiov->iov_base + num_done;
-                tmpiov->iov_len -= num_done;
-
+#ifdef _WIN32
+                tmpiov->iov_len -= (unsigned long)num_done;
+#else
+                tmpiov->iov_len -= (size_t)num_done;
+#endif
                 count = writev(smb2->fd, tmpiov, niov);
                 if (count == -1) {
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -318,7 +325,11 @@ read_more_data:
         niov = smb2->in.niov;
         for (i = 0; i < niov; i++) {
                 iov[i].iov_base = smb2->in.iov[i].buf;
-                iov[i].iov_len = smb2->in.iov[i].len;
+#if defined(_WIN32) || defined(_XBOX)
+                iov[i].iov_len = (unsigned long)smb2->in.iov[i].len;
+#else
+                iov[i].iov_len = (size_t)smb2->in.iov[i].len;
+#endif
         }
         tmpiov = iov;
 
@@ -331,8 +342,11 @@ read_more_data:
 
         /* Adjust the first vector to read */
         tmpiov->iov_base = (char *)tmpiov->iov_base + num_done;
-        tmpiov->iov_len -= num_done;
-
+#if defined(_WIN32) || defined(_XBOX)
+        tmpiov->iov_len -= (unsigned long)num_done;
+#else
+        tmpiov->iov_len -= (size_t)num_done;
+#endif
         /* Read into our trimmed iovectors */
         count = func(smb2, tmpiov, niov);
         if (count < 0) {
@@ -450,8 +464,8 @@ read_more_data:
                         for (i = 0; i < pdu->in.niov; i++) {
                                 size_t num = pdu->in.iov[i].len;
 
-                                if (num > len) {
-                                        num = len;
+                                if (num > (size_t)len) {
+                                        num = (size_t)len;
                                 }
                                 smb2_add_iovector(smb2, &smb2->in,
                                                   pdu->in.iov[i].buf,
@@ -623,7 +637,7 @@ read_more_data:
 static ssize_t smb2_readv_from_socket(struct smb2_context *smb2,
                                       const struct iovec *iov, int iovcnt)
 {
-        return readv(smb2->fd, iov, iovcnt);
+        return readv(smb2->fd, (struct iovec*) iov, iovcnt);
 }
 
 static int
@@ -649,15 +663,15 @@ smb2_read_from_socket(struct smb2_context *smb2)
 static ssize_t smb2_readv_from_buf(struct smb2_context *smb2,
                                    const struct iovec *iov, int iovcnt)
 {
-        int i, len, count = 0;
+        ssize_t i, len, count = 0;
 
         for (i=0;i<iovcnt;i++){
                 len = iov[i].iov_len;
-                if (len > smb2->enc_len - smb2->enc_pos) {
+                if (len > (ssize_t)smb2->enc_len - smb2->enc_pos) {
                         len = smb2->enc_len - smb2->enc_pos;
                 }
                 memcpy(iov[i].iov_base, &smb2->enc[smb2->enc_pos], len);
-                smb2->enc_pos += len;
+                smb2->enc_pos += (int)len;
                 count += len;
         }
         return count;
@@ -687,12 +701,12 @@ smb2_close_connecting_fd(struct smb2_context *smb2, t_socket fd)
         }
 }
 
-t_socket
+int
 smb2_service_fd(struct smb2_context *smb2, t_socket fd, int revents)
 {
         int ret = 0;
 
-        if (fd == -1) {
+        if (!VALID_SOCKET(fd)) {
                 /* Connect to a new addr in parallel */
                 if (smb2->next_addrinfo != NULL) {
                     int err = smb2_connect_async_next_addr(smb2,
@@ -723,7 +737,7 @@ smb2_service_fd(struct smb2_context *smb2, t_socket fd, int revents)
                 int err = 0;
                 socklen_t err_size = sizeof(err);
 
-                if (smb2->fd == -1 && smb2->next_addrinfo != NULL) {
+                if (!VALID_SOCKET(smb2->fd) && smb2->next_addrinfo != NULL) {
                         /* Connecting fd failed, try to connect to the next addr */
                         smb2_close_connecting_fd(smb2, fd);
 
@@ -759,7 +773,7 @@ smb2_service_fd(struct smb2_context *smb2, t_socket fd, int revents)
                 goto out;
         }
 
-        if (smb2->fd == -1 && revents & POLLOUT) {
+        if (!VALID_SOCKET(smb2->fd) && revents & POLLOUT) {
                 int err = 0;
                 socklen_t err_size = sizeof(err);
 
@@ -824,7 +838,7 @@ smb2_service_fd(struct smb2_context *smb2, t_socket fd, int revents)
         return ret;
 }
 
-t_socket
+int
 smb2_service(struct smb2_context *smb2, int revents)
 {
         if (smb2->connecting_fds_count > 0) {
@@ -877,7 +891,7 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
         struct sockaddr_storage ss;
 #if 0 == CONFIGURE_OPTION_TCP_LINGER
         int const yes = 1;
-        struct LingerStruct const lin = { 1, 0 };   /*  if l_linger is zero, sends RST after FIN */
+        struct linger const lin = { 1, 0 };   /*  if l_linger is zero, sends RST after FIN */
 #endif
 #ifdef _XBOX
         BOOL bBroadcast = TRUE;
@@ -912,7 +926,7 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
         family = ai->ai_family;
 
         fd = socket(family, SOCK_STREAM, 0);
-        if (fd == -1) {
+        if (!VALID_SOCKET(fd)) {
                 smb2_set_error(smb2, "Failed to open smb2 socket. "
                                "Errno:%s(%d).", strerror(errno), errno);
                 return -EIO;
@@ -936,8 +950,8 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
         set_nonblocking(fd);
         set_tcp_sockopt(fd, TCP_NODELAY, 1);
 #if 0 == CONFIGURE_OPTION_TCP_LINGER
-        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
-        setsockopt(fd, SOL_SOCKET, SO_LINGER, &lin, sizeof lin);
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void*)&yes, sizeof yes);
+        setsockopt(fd, SOL_SOCKET, SO_LINGER, (const void*)&lin, sizeof lin);
 #endif
 
         if (connect(fd, (struct sockaddr *)&ss, socksize) != 0
@@ -1028,7 +1042,7 @@ smb2_connect_async(struct smb2_context *smb2, const char *server,
         size_t addr_count = 0;
         const struct addrinfo *ai;
 
-        if (smb2->fd != -1) {
+        if (VALID_SOCKET(smb2->fd)) {
                 smb2_set_error(smb2, "Trying to connect but already "
                                "connected.");
                 return -EINVAL;

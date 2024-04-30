@@ -143,7 +143,7 @@ smb2_parse_args(struct smb2_context *smb2, const char *args)
                                 return -1;
                         }
                 } else if (!strcmp(args, "timeout")) {
-                        smb2->timeout = strtol(value, NULL, 10);
+                        smb2->timeout = (int)strtol(value, NULL, 10);
                 } else {
                         smb2_set_error(smb2, "Unknown argument: %s", args);
                         return -1;
@@ -180,7 +180,7 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
 #endif
         char *args;
         char *shared_folder;
-        int len_shared_folder;
+        size_t len_shared_folder;
 
         if (strncmp(url, "smb://", 6)) {
                 smb2_set_error(smb2, "URL does not start with 'smb://'");
@@ -189,10 +189,13 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
         if (strlen(url + 6) >= MAX_URL_SIZE) {
                 smb2_set_error(smb2, "URL is too long");
                 return NULL;
-        }  
+        }
+#ifdef USE_PASSWORD
         strcpy(str, url + 6);
-        
-		args = strchr(str, '?');
+#else
+        strncpy(str, url + 6, MAX_URL_SIZE);
+#endif
+        args = strchr(str, '?');
         if (args) {
                 *(args++) = '\0';
                 if (smb2_parse_args(smb2, args) != 0) {
@@ -230,13 +233,13 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
                     *(pwd++) = '\0';
                     u->password = strdup(pwd);
                 }
-#endif
+#endif                              
                 u->user = strdup(ptr);
                 ptr = tmp;
         }
         /* server */
         if ((tmp = strchr(ptr, '/')) != NULL) {
-                *(tmp++) = '\0';
+                *(tmp++) = '\0';                
                 u->server = strdup(ptr);
                 ptr = tmp;
         }
@@ -282,8 +285,8 @@ struct smb2_context *smb2_init_context(void)
         int i, ret;
         static int ctr;
 
-        srandom(time(NULL) ^ getpid() ^ ctr++);
-        
+        srandom((unsigned)time(NULL) ^ getpid() ^ ctr++);
+
         smb2 = calloc(1, sizeof(struct smb2_context));
         if (smb2 == NULL) {
                 return NULL;
@@ -291,7 +294,7 @@ struct smb2_context *smb2_init_context(void)
 
         ret = getlogin_r(buf, sizeof(buf));
         smb2_set_user(smb2, ret == 0 ? buf : "Guest");
-        smb2->fd = -1;
+        smb2->fd = INVALID_SOCKET;
         smb2->connecting_fds = NULL;
         smb2->connecting_fds_count = 0;
         smb2->addrinfos = NULL;
@@ -320,12 +323,12 @@ void smb2_destroy_context(struct smb2_context *smb2)
                 return;
         }
 
-        if (smb2->fd != -1) {
+        if (VALID_SOCKET(smb2->fd)) {
                 if (smb2->change_fd) {
                         smb2->change_fd(smb2, smb2->fd, SMB2_DEL_FD);
                 }
                 close(smb2->fd);
-                smb2->fd = -1;
+                smb2->fd = INVALID_SOCKET;
         }
         else {
                 smb2_close_connecting_fds(smb2);
@@ -397,7 +400,7 @@ void smb2_free_iovector(struct smb2_context *smb2, struct smb2_io_vectors *v)
 
 struct smb2_iovec *smb2_add_iovector(struct smb2_context *smb2,
                                      struct smb2_io_vectors *v,
-                                     uint8_t *buf, int len,
+                                     uint8_t *buf, size_t len,
                                      void (*free)(void *))
 {
         struct smb2_iovec *iov = &v->iov[v->niov];
@@ -635,3 +638,9 @@ void smb2_set_version(struct smb2_context *smb2,
         smb2->version = version;
 }
 
+void smb2_get_libsmb2Version(struct smb2_libversion *smb2_ver)
+{
+        smb2_ver->major_version = LIBSMB2_MAJOR_VERSION;
+        smb2_ver->minor_version = LIBSMB2_MINOR_VERSION;
+        smb2_ver->patch_version = LIBSMB2_MAJOR_VERSION;
+}

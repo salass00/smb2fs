@@ -27,10 +27,10 @@
 #define NEED_RANDOM
 #define NEED_SRANDOM
 #define login_num ENXIO
-#define getpid_num GetCurrentProcessId
+#define getpid_num() GetCurrentProcessId()
 #else
 #define login_num 0
-#define getpid_num 0	
+#define getpid_num() 0	
 #endif
 #define smb2_random rand
 #define smb2_srandom srand
@@ -118,7 +118,7 @@ struct MinList __filelist = { (struct MinNode *) &__filelist.mlh_Tail, NULL, (st
 #include <errno.h>
 
 #define login_num ENXIO
-#define getpid_num 27
+#define getpid_num() 27
 
 static unsigned long int next = 1; 
 
@@ -217,7 +217,7 @@ int smb2_getaddrinfo(const char *node, const char*service,
 #ifndef _XBOX
         sin->sin_len = sizeof(struct sockaddr_in);
 #endif
-		sin->sin_family=AF_INET;
+        sin->sin_family=AF_INET;
 
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
         /* Some error checking would be nice */
@@ -252,6 +252,7 @@ int smb2_getaddrinfo(const char *node, const char*service,
         } 
 
         *res = malloc(sizeof(struct addrinfo));
+        memset(*res, 0, sizeof(struct addrinfo));
 #endif
         (*res)->ai_family = AF_INET;
         (*res)->ai_addrlen = sizeof(struct sockaddr_in);
@@ -299,7 +300,7 @@ void srandom(unsigned int seed)
 #ifdef NEED_GETPID
 int getpid()
 {
-     return getpid_num;
+     return getpid_num();
 };
 #endif
 
@@ -423,7 +424,7 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
         for (i = 0; i < nfds; ++i) {
                 int fd = fds[i].fd;
                 fds[i].revents = 0;
-                if (fd < 0)
+                if (!VALID_SOCKET(fd))
                         continue;
                 if(fds[i].events & (POLLIN|POLLPRI)) {
                         ip = &ifds;
@@ -450,9 +451,9 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                         FD_SET(fds[i].fd, op);
                 }
                 FD_SET(fds[i].fd, &efds);
-                if (fds[i].fd > maxfd) {
-                        maxfd = fds[i].fd;
-                }
+                if (fds[i].fd > (int)maxfd) {
+                    maxfd = fds[i].fd;
+		}
         } 
 #endif
 
@@ -494,7 +495,7 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                 int fd = fds[i].fd;
                 short events = fds[i].events;
                 short revents = 0;
-                if (fd < 0)
+                if (!VALID_SOCKET(fd))
                         continue;
                 if(events & (POLLIN|POLLPRI) && FD_ISSET(fd, &ifds))
                         revents |= POLLIN;

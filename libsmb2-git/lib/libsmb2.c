@@ -103,7 +103,7 @@
 
 #if defined(ESP_PLATFORM)
 #define DEFAULT_OUTPUT_BUFFER_LENGTH 512
-#elif defined(PS2_EE_PLATFORM) || defined(PS2_IOP_PLATFORM)
+#elif defined(PS2_PLATFORM)
 #define DEFAULT_OUTPUT_BUFFER_LENGTH 4096
 #else
 #define DEFAULT_OUTPUT_BUFFER_LENGTH 0xffff
@@ -190,12 +190,12 @@ smb2_close_context(struct smb2_context *smb2)
                 return;
         }
 
-        if (smb2->fd != -1) {
+        if (VALID_SOCKET(smb2->fd)) {
                 if (smb2->change_fd) {
                         smb2->change_fd(smb2, smb2->fd, SMB2_DEL_FD);
                 }
                 close(smb2->fd);
-                smb2->fd = -1;
+                smb2->fd = INVALID_SOCKET;
         }
 
         smb2->message_id = 0;
@@ -813,7 +813,7 @@ send_session_setup_request(struct smb2_context *smb2,
 
         /* Session setup request. */
         memset(&req, 0, sizeof(struct smb2_session_setup_request));
-        req.security_mode = smb2->security_mode;
+        req.security_mode = (uint8_t)smb2->security_mode;
 
         if (smb2->sec == SMB2_SEC_NTLMSSP) {
                 if (ntlmssp_generate_blob(smb2, time(NULL), c_data->auth_data,
@@ -1024,11 +1024,10 @@ connect_cb(struct smb2_context *smb2, int status,
 int
 smb2_connect_share_async(struct smb2_context *smb2,
                          const char *server,
-                         const char *share,
-						 const char *user,
+                         const char *share, const char *user, 
 #ifdef USE_PASSWORD
                          const char *password,						 
-#endif
+#endif                       
                          smb2_command_cb cb, void *cb_data)
 {
         struct connect_data *c_data;
@@ -1060,7 +1059,7 @@ smb2_connect_share_async(struct smb2_context *smb2,
         if (password) {
                 smb2_set_password(smb2, password);
         }
-#endif
+#endif        
         c_data = calloc(1, sizeof(struct connect_data));
         if (c_data == NULL) {
                 smb2_set_error(smb2, "Failed to allocate connect_data");
@@ -2546,7 +2545,7 @@ disconnect_cb_2(struct smb2_context *smb2, int status,
                 smb2->change_fd(smb2, smb2->fd, SMB2_DEL_FD);
         }
         close(smb2->fd);
-        smb2->fd = -1;
+        smb2->fd = INVALID_SOCKET;
 }
 
 static void
@@ -2576,7 +2575,7 @@ smb2_disconnect_share_async(struct smb2_context *smb2,
                 return -EINVAL;
         }
 
-        if (smb2->fd == -1) {
+        if (!VALID_SOCKET(smb2->fd)) {
                 smb2_set_error(smb2, "connection is alreeady disconnected or was never connected");
                 return -EINVAL;
         }

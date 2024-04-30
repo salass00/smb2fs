@@ -19,7 +19,7 @@
 #  define WORDS_BIGENDIAN 1
 #endif
 
-#if !defined(PS2_EE_PLATFORM) && !defined(PS2_IOP_PLATFORM) && !defined(PICO_PLATFORM)
+#if !defined(PS2_PLATFORM) && !defined(PICO_PLATFORM)
 typedef uint32_t UWORD32;
 #endif
 
@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 void
-smb2_hmac_md5(unsigned char *text, int text_len, unsigned char *key, int key_len,
+smb2_hmac_md5(unsigned char *text, int text_len, unsigned char *key, unsigned int key_len,
 	 unsigned char *digest);
 
 #ifdef __cplusplus

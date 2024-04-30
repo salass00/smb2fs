@@ -23,15 +23,27 @@
 extern "C" {
 #endif
 
-#if defined(_XBOX) || defined(_WINDOWS)
+#if defined(_WINDOWS) || defined(_XBOX)
+#if defined(_WINDOWS)
+#include <winsock2.h>
+#elif defined(_XBOX)
+#include <winsockx.h>
+#endif
+typedef SOCKET t_socket;
+#define VALID_SOCKET(sock)	((sock) != INVALID_SOCKET)
+#else
+typedef int t_socket;
+#define VALID_SOCKET(sock)	((sock) >= 0)
+#define INVALID_SOCKET		-1
+#endif
+
+#if defined(_XBOX) || defined(_WINDOWS) || defined(__MINGW32__)
 
 #ifdef _XBOX
 /* XBOX Defs begin */
 #include <xtl.h>
-#include <winsockx.h>
 #else
 #include <windows.h>
-#include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
 #include <stddef.h>
@@ -57,12 +69,6 @@ typedef unsigned int uint_t;
 typedef unsigned int uintptr_t;
 #else
 #include <stdint.h>
-#endif
-
-#if defined(_WINDOWS) || defined(_XBOX)
-typedef SOCKET t_socket;
-#else
-typedef int t_socket;
 #endif
 
 #ifndef ENETRESET
@@ -101,7 +107,7 @@ typedef int t_socket;
 #define EBADF WSAENOTSOCK
 #endif
 
-#ifdef _XBOX
+#if defined(_XBOX) || defined(__MINGW32__)
 #define snprintf _snprintf
 #endif
 
@@ -241,6 +247,8 @@ int getlogin_r(char *buf, size_t size);
 
 int getpid();
 
+#pragma warning( disable : 4090 ) 
+
 #ifdef _XBOX
 /* just pretend they are the same so we compile */
 #define sockaddr_in6 sockaddr_in
@@ -277,44 +285,6 @@ ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
 int getlogin_r(char *buf, size_t size);
 
 #endif /* DC_KOS_PLATFORM */
-
-#ifdef PS2_EE_PLATFORM
-
-#include <unistd.h>
-
-int getlogin_r(char *buf, size_t size);
-
-#define POLLIN      0x0001    /* There is data to read */
-#define POLLPRI     0x0002    /* There is urgent data to read */
-#define POLLOUT     0x0004    /* Writing now will not block */
-#define POLLERR     0x0008    /* Error condition */
-#define POLLHUP     0x0010    /* Hung up */
-
-struct pollfd {
-        int fd;
-        short events;
-        short revents;
-};
-
-int poll(struct pollfd *fds, unsigned int nfds, int timo);
-
-struct iovec {
-  void  *iov_base;
-  size_t iov_len;
-};
-
-ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
-ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
-
-long long int be64toh(long long int x);
-
-#define SOL_TCP IPPROTO_TCP
-#define EAI_AGAIN EAGAIN
-
-/* just pretend they are the same so we compile */
-#define sockaddr_in6 sockaddr_in
-
-#endif /* PS2_EE_PLATFORM */
 
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
 #include <errno.h>
@@ -382,36 +352,62 @@ struct sockaddr_storage {
 #endif
 #endif
 
-#ifdef PS2_IOP_PLATFORM
+#ifdef PS2_PLATFORM
 
+#ifdef PS2_EE_PLATFORM
+#include <unistd.h>
+#else
 #include <alloc.h>
 #include <stdint.h>
 #include <ps2ip.h>
 #include <loadcore.h>
+#endif
 
+#ifdef PS2_IOP_PLATFORM
 typedef uint32_t UWORD32;
 typedef size_t ssize_t;
+#endif
 
 long long int be64toh(long long int x);
+#ifdef PS2_IOP_PLATFORM
 char *strdup(const char *s);
 
 int random(void);
 void srandom(unsigned int seed);
 time_t time(time_t *tloc);
 int asprintf(char **strp, const char *fmt, ...);
-
+#endif
 int getlogin_r(char *buf, size_t size);
-int getpid();
 
+#ifdef PS2_IOP_PLATFORM
+int getpid();
+#endif
+
+#ifdef PS2_IOP_PLATFORM
 #define close(x) lwip_close(x)
 #define snprintf(format, n, ...) sprintf(format, __VA_ARGS__)
 #define fcntl(a,b,c) lwip_fcntl(a,b,c)
+#endif
 
+#ifndef POLLIN
 #define POLLIN      0x0001    /* There is data to read */
+#endif
+
+#ifndef POLLPRI
 #define POLLPRI     0x0002    /* There is urgent data to read */
+#endif
+
+#ifndef POLLOUT
 #define POLLOUT     0x0004    /* Writing now will not block */
+#endif
+
+#ifndef POLLERR
 #define POLLERR     0x0008    /* Error condition */
+#endif
+
+#ifndef POLLHUP
 #define POLLHUP     0x0010    /* Hung up */
+#endif
 
 struct pollfd {
         int fd;
@@ -426,12 +422,14 @@ struct iovec {
   size_t iov_len;
 };
 
+#ifdef PS2_IOP_PLATFORM
 #undef connect
 #define connect(a,b,c) iop_connect(a,b,c)
 int iop_connect(int sockfd, struct sockaddr *addr, socklen_t addrlen);
 
 #define write(a,b,c) lwip_send(a,b,c,MSG_DONTWAIT)
 #define read(a,b,c) lwip_recv(a,b,c,MSG_DONTWAIT)
+#endif
 
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
@@ -439,12 +437,14 @@ ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
 #define SOL_TCP IPPROTO_TCP
 #define EAI_AGAIN EAGAIN
 
+#ifdef PS2_IOP_PLATFORM
 #define strerror(x) "Unknown"
+#endif
 
 /* just pretend they are the same so we compile */
 #define sockaddr_in6 sockaddr_in
 
-#endif /* PS2_IOP_PLATFORM */
+#endif /* PS2_PLATFORM */
 
 #ifdef PS3_PPU_PLATFORM
 
@@ -513,6 +513,11 @@ struct sockaddr_storage {
 
 #define TCP_NODELAY     1  /* Don't delay send to coalesce packets  */
 
+
+#ifndef ENODATA
+#define ENODATA 98
+#endif
+
 #endif /* PS4_PLATFORM */
 
 #ifdef ESP_PLATFORM
@@ -522,6 +527,7 @@ struct sockaddr_storage {
 void srandom(unsigned int seed);
 long random(void);
 int getlogin_r(char *buf, size_t size);
+#define HAVE_LINGER 1
 #endif
 
 #ifdef __ANDROID__
