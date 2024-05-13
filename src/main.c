@@ -58,7 +58,7 @@ static const char cmd_template[] =
 	"VOLUME,"
 	"READONLY/S,"
 	"NOPASSWORDREQ/S,"
-	"HANDLESRCV/S,"
+	"NOHANDLESRCV/S,"
 	"RECONNECTREQ/S";
 
 enum {
@@ -68,7 +68,7 @@ enum {
 	ARG_VOLUME,
 	ARG_READONLY,
 	ARG_NOPASSWORDREQ,
-	ARG_HANDLES_RCV,
+	ARG_NO_HANDLES_RCV,
 	ARG_RECONNECT_REQ,
 	NUM_ARGS
 };
@@ -94,7 +94,7 @@ struct smb2fs {
 struct smb2fs *fsd;
 uint32_t phr_incarnation = 1;
 BOOL cfg_reconnect_req = FALSE;
-BOOL cfg_handles_rcv = FALSE; // recover handles (experimental)
+BOOL cfg_handles_rcv = TRUE; // recover handles (experimental)
 char last_server[128];
 
 static void smb2fs_destroy(void *initret);
@@ -112,8 +112,8 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	if (md->args[ARG_RECONNECT_REQ])
 		cfg_reconnect_req = TRUE;
 
-	if (md->args[ARG_HANDLES_RCV])
-		cfg_handles_rcv = TRUE;
+	if (md->args[ARG_NO_HANDLES_RCV])
+		cfg_handles_rcv = FALSE;
 
 	fsd = calloc(1, sizeof(*fsd));
 	if (fsd == NULL)

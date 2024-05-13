@@ -75,3 +75,17 @@ smb2-handler 53.7 (17.6.2023)
 - AROS version: Replaced fcntl() and close() calls with IoctlSocket() and
   CloseSocket().
 
+
+smb2-handler 53.8 (15.5.2024)
+
+- IMPORTANT: this revision only supports m86k-amigaos target
+
+- implemented proper disposal of libsmb2 context on connection fault
+
+- implemented automatic reconnection handling
+
+- experimental recovery of handles during file operations
+  interrupted by connection fault. Please note: the SMB server might still cause lock issue,
+  reported by "..busy" "..in use" errors on workbench. This can't be solved within this handler,
+  unless libsmb2 supports durable handles.
+
