@@ -2,6 +2,7 @@
  * smb2-handler - SMB2 file system client
  *
  * Copyright (C) 2022-2023 Fredrik Wikstrom <fredrik@a500.org>
+ * Copyright (C) 2024 Walter Licht https://github.com/sirwalt
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +23,7 @@
 #define __USE_INLINE__
 
 #include "smb2fs.h"
+#include "marshalling.h"
 
 #include <dos/filehandler.h>
 #ifndef __amigaos4__
@@ -55,7 +57,9 @@ static const char cmd_template[] =
 	"PASSWORD,"
 	"VOLUME,"
 	"READONLY/S,"
-	"NOPASSWORDREQ/S";
+	"NOPASSWORDREQ/S,"
+	"HANDLESRCV/S,"
+	"RECONNECTREQ/S";
 
 enum {
 	ARG_URL,
@@ -64,6 +68,8 @@ enum {
 	ARG_VOLUME,
 	ARG_READONLY,
 	ARG_NOPASSWORDREQ,
+	ARG_HANDLES_RCV,
+	ARG_RECONNECT_REQ,
 	NUM_ARGS
 };
 
@@ -79,28 +85,49 @@ struct smb2fs_mount_data {
 
 struct smb2fs {
 	struct smb2_context *smb2;
+	struct PointerHandleRegistry *phr;
 	BOOL                 rdonly:1;
 	BOOL                 connected:1;
 	char                *rootdir;
 };
 
 struct smb2fs *fsd;
+uint32_t phr_incarnation = 1;
+BOOL cfg_reconnect_req = FALSE;
+BOOL cfg_handles_rcv = FALSE; // recover handles (experimental)
+char last_server[128];
 
 static void smb2fs_destroy(void *initret);
 
 static void *smb2fs_init(struct fuse_conn_info *fci)
 {
 	struct smb2fs_mount_data *md;
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_init started.\n");
 	struct smb2_url          *url;
 	const char               *username;
 	const char               *password;
 
 	md = fuse_get_context()->private_data;
 
+	if (md->args[ARG_RECONNECT_REQ])
+		cfg_reconnect_req = TRUE;
+
+	if (md->args[ARG_HANDLES_RCV])
+		cfg_handles_rcv = TRUE;
+
 	fsd = calloc(1, sizeof(*fsd));
 	if (fsd == NULL)
 	{
 		request_error("Failed to allocate memory for the file system data");
+		return NULL;
+	}
+
+	fsd->phr = AllocateNewRegistry(phr_incarnation++);
+	if (fsd->phr == NULL)
+	{
+		request_error("Failed to allocate memory for the pointer handle registry");
+		free(fsd);
+		fsd = NULL;
 		return NULL;
 	}
 
@@ -122,6 +149,8 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		smb2fs_destroy(fsd);
 		return NULL;
 	}
+
+	strlcpy(last_server, url->server, sizeof(last_server));
 
 	username = url->user;
 	password = url->password;
@@ -217,50 +246,137 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		}
 	}
 
-	if (md->args[ARG_VOLUME])
+	// Only on first initialization
+	if(fci)
 	{
-		strlcpy(fci->volume_name, (const char *)md->args[ARG_VOLUME], CONN_VOLUME_NAME_BYTES);
-	}
-	else
-	{
-		snprintf(fci->volume_name, CONN_VOLUME_NAME_BYTES, "%s-%s", url->server, url->share);
+		if (md->args[ARG_VOLUME])
+		{
+			strlcpy(fci->volume_name, (const char *)md->args[ARG_VOLUME], CONN_VOLUME_NAME_BYTES);
+		}
+		else
+		{
+			snprintf(fci->volume_name, CONN_VOLUME_NAME_BYTES, "%s-%s", url->server, url->share);
+		}
 	}
 
 	smb2_destroy_url(url);
 	url = NULL;
 
 	return fsd;
-
 }
 
 static void smb2fs_destroy(void *initret)
 {
-	if (fsd == NULL)
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy started.\n");
+	if (fsd == NULL) {
+		// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy NULL return.\n");
 		return;
-
+	}
+	
 	if (fsd->smb2 != NULL)
 	{
 		if (fsd->connected)
 		{
+			// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy connected => disconnect.\n");
 			smb2_disconnect_share(fsd->smb2);
+			// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy disconnected.\n");
 			fsd->connected = FALSE;
 		}
+		// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy => destroy smb2 context.\n");
 		smb2_destroy_context(fsd->smb2);
+		// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy smb2 context destroyed.\n");
 		fsd->smb2 = NULL;
 	}
+
+	if (fsd->rootdir != NULL)
+	{
+		// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy => free root dir.\n");
+		free(fsd->rootdir);
+		// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy root dir freed.\n");
+		fsd->rootdir = NULL;
+	}
+
+	if (fsd->phr != NULL)
+	{
+		FreeRegistry(fsd->phr);
+		fsd->phr = NULL;
+	}
+
+
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy => free fsd.\n");
+	free(fsd);
+	fsd = NULL;
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_destroy FINISHED.\n");
+}
+
+#include "libsmb2-private.h"
+
+// Debug function to print 'smb2_context'
+void debug_print_smb2_context(const struct smb2_context *ctx) {
+    KPrintF("SMB2 Context:\n");
+    KPrintF("Socket FD: %ld\n", ctx->fd);
+	KPrintF("Connecting FDs: %lu\n", ctx->connecting_fds);
+    KPrintF("Connecting FDs Count: %lu\n", ctx->connecting_fds_count);
+    KPrintF("Timeout: %ld\n", ctx->timeout);
+    KPrintF("Security Mode: %u\n", ctx->security_mode);
+    KPrintF("Use Cached Credentials: %s\n", ctx->use_cached_creds ? "Yes" : "No");
+    KPrintF("Server: %s\n", ctx->server ? ctx->server : "NULL");
+    KPrintF("Share: %s\n", ctx->share ? ctx->share : "NULL");
+    KPrintF("User: %s\n", ctx->user ? ctx->user : "NULL");
+    
+    switch (ctx->sec) {
+        case 0: KPrintF("Security: None\n"); break;
+        case 2: KPrintF("Security: Kerberos\n"); break;
+        case 1: KPrintF("Security: NTLMSSP\n"); break;
+        default: KPrintF("Security: Unknown\n"); break;
+    }
+    
+    switch (ctx->version) {
+        case SMB2_VERSION_ANY:  KPrintF("Version: SMB2_ANY\n"); break;
+        case SMB2_VERSION_ANY2: KPrintF("Version: SMB2_ANY2\n"); break;
+        case SMB2_VERSION_ANY3: KPrintF("Version: SMB2_ANY3\n"); break;
+        case SMB2_VERSION_0202: KPrintF("Version: SMB2_0202\n"); break;
+        case SMB2_VERSION_0210: KPrintF("Version: SMB2_0210\n"); break;
+        case SMB2_VERSION_0300: KPrintF("Version: SMB2_0300\n"); break;
+        case SMB2_VERSION_0302: KPrintF("Version: SMB2_0302\n"); break;
+        case SMB2_VERSION_0311: KPrintF("Version: SMB2_0311\n"); break;
+        default: KPrintF("Version: Unknown (%x)\n", ctx->version); break;
+    }
+}
+
+static int handle_connection_fault()
+{
+	const char *psz_error = smb2_get_error(fsd->smb2);
+
+	request_error(psz_error);
+	
+	smb2_destroy_context(fsd->smb2);
+	fsd->smb2 = NULL;
 
 	if (fsd->rootdir != NULL)
 	{
 		free(fsd->rootdir);
 		fsd->rootdir = NULL;
 	}
-
 	free(fsd);
 	fsd = NULL;
+
+	if(!cfg_reconnect_req)
+		return FALSE;
+	
+	while(request_reconnect(last_server))
+	{
+		if(smb2fs_init(NULL))
+			return TRUE;
+	}
+	
+	return FALSE;
 }
+
 
 static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_statfs started.\n");
 	struct smb2_statvfs smb2_sfs;
 	int                 rc;
 	char                pathbuf[MAXPATHLEN];
@@ -268,6 +384,11 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 	uint64_t            blocks, bfree, bavail;
 
 	if (fsd == NULL)
+		/*
+		* trying to reconnect in smb2fs_statfs could be cumbersome usability,
+		* do to the frequent polls triggered somewhere in either AmigaDOS or filesysbox.library.
+		* Reconnects are implement for all other functions.
+		*/
 		return -ENODEV;
 
 	if (path == NULL || path[0] == '\0')
@@ -282,11 +403,22 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	rc = smb2_statvfs(fsd->smb2, path, &smb2_sfs);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	// debug_print_smb2_context(fsd->smb2);
+
+	do {
+		rc = smb2_statvfs(fsd->smb2, path, &smb2_sfs);
+		if(rc < -1)
+		{
+			// KPrintF("[smb2fs_statfs] r2: %ld\n", rc);
+			// KPrintF("[smb2fs_statfs] r2_text: %s\n", nterror_to_str(rc));
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	frsize = smb2_sfs.f_frsize;
 	blocks = smb2_sfs.f_blocks;
@@ -325,6 +457,7 @@ static int smb2fs_statfs(const char *path, struct statvfs *sfs)
 
 static void smb2fs_fillstat(struct fbx_stat *stbuf, const struct smb2_stat_64 *smb2_st)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_fillstat started.\n");
 	memset(stbuf, 0, sizeof(*stbuf));
 
 	switch (smb2_st->smb2_type)
@@ -354,12 +487,21 @@ static void smb2fs_fillstat(struct fbx_stat *stbuf, const struct smb2_stat_64 *s
 
 static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_getattr started.\n");
 	struct smb2_stat_64 smb2_st;
 	int                 rc;
 	char                pathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rootdir != NULL)
 	{
@@ -370,11 +512,20 @@ static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	rc = smb2_stat(fsd->smb2, path, &smb2_st);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_stat(fsd->smb2, path, &smb2_st);
+		if(rc < -1)
+		{
+			// KPrintF("[smb2fs_getattr] r2: %ld\n", rc);
+			// KPrintF("[smb2fs_getattr] r2_text: %s\n", nterror_to_str(rc));
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	smb2fs_fillstat(stbuf, &smb2_st);
 
@@ -384,22 +535,40 @@ static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
 static int smb2fs_fgetattr(const char *path, struct fbx_stat *stbuf,
                            struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_fgetattr started.\n");
 	struct smb2fh      *smb2fh;
 	struct smb2_stat_64 smb2_st;
 	int                 rc;
 
 	if (fsd == NULL)
-		return -ENODEV;
-
-	smb2fh = (struct smb2fh *)(size_t)fi->fh;
-	if (smb2fh == NULL)
-		return -EINVAL;
-
-	rc = smb2_fstat(fsd->smb2, smb2fh, &smb2_st);
-	if (rc < 0)
 	{
-		return rc;
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
 	}
+
+	do {
+		smb2fh = (struct smb2fh *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
+		if (smb2fh == NULL)
+			return -EINVAL;
+
+		rc = smb2_fstat(fsd->smb2, smb2fh, &smb2_st);
+		if(rc < -1)
+		{
+			// KPrintF("[smb2fs_fgetattr] r2: %ld\n", rc);
+			// KPrintF("[smb2fs_fgetattr] r2_text: %s\n", nterror_to_str(rc));
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	smb2fs_fillstat(stbuf, &smb2_st);
 
@@ -408,11 +577,20 @@ static int smb2fs_fgetattr(const char *path, struct fbx_stat *stbuf,
 
 static int smb2fs_mkdir(const char *path, mode_t mode)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_mkdir started.\n");
 	int  rc;
 	char pathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -426,22 +604,39 @@ static int smb2fs_mkdir(const char *path, mode_t mode)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	rc = smb2_mkdir(fsd->smb2, path);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_mkdir(fsd->smb2, path);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_opendir started.\n");
 	struct smb2dir *smb2dir;
 	char            pathbuf[MAXPATHLEN];
+	int 			r2;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rootdir != NULL)
 	{
@@ -452,29 +647,60 @@ static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	smb2dir = smb2_opendir(fsd->smb2, path);
-	if (smb2dir == NULL)
-	{
-		return -ENOENT;
-	}
+	do {
+		smb2dir = smb2_opendir(fsd->smb2, path, &r2);
+		if (smb2dir == NULL)
+		{
+			if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
+			{
+				if(!handle_connection_fault())
+					return -ENODEV;
+			}
+			else
+				return -ENOENT;
+		}
+	} while(smb2dir == NULL);
+	// smb2dir = smb2_opendir(fsd->smb2, path);
+	// if (smb2dir == NULL)
+	// {
+	// 	return -ENOENT;
+	// }
 
-	fi->fh = (uint64_t)(size_t)smb2dir;
+	//fi->fh = (uint64_t)(size_t)smb2dir;
+	fi->fh = AllocateHandleForPointer(fsd->phr, smb2dir);
+	if (fi->fh == 0)
+	{
+		return -ENOMEM;
+	}
 
 	return 0;
 }
 
 static int smb2fs_releasedir(const char *path, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_releasedir started.\n");
 	struct smb2dir *smb2dir;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
-	smb2dir = (struct smb2dir *)(size_t)fi->fh;
+	// smb2dir = (struct smb2dir *)(size_t)fi->fh;
+	// if (smb2dir == NULL)
+	// 	return -EINVAL;
+	smb2dir = (struct smb2dir *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
 	if (smb2dir == NULL)
 		return -EINVAL;
 
 	smb2_closedir(fsd->smb2, smb2dir);
+	RemoveHandle(fsd->phr, (uint32_t) fi->fh);
 	fi->fh = (uint64_t)(size_t)NULL;
 
 	return 0;
@@ -483,17 +709,29 @@ static int smb2fs_releasedir(const char *path, struct fuse_file_info *fi)
 static int smb2fs_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
 	fbx_off_t offset, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_readdir started.\n");
 	struct smb2dir    *smb2dir;
 	struct smb2dirent *ent;
 	struct fbx_stat    stbuf;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fi == NULL)
 		return -EINVAL;
 
-	smb2dir = (struct smb2dir *)(size_t)fi->fh;
+	// smb2dir = (struct smb2dir *)(size_t)fi->fh;
+	// if (smb2dir == NULL)
+	// 	return -EINVAL;
+	smb2dir = (struct smb2dir *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
 	if (smb2dir == NULL)
 		return -EINVAL;
 
@@ -508,12 +746,22 @@ static int smb2fs_readdir(const char *path, void *buffer, fuse_fill_dir_t filler
 
 static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_open started.\n");
 	struct smb2fh *smb2fh;
 	int            flags;
 	char           pathbuf[MAXPATHLEN];
+	int				r2;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rootdir != NULL)
 	{
@@ -528,10 +776,26 @@ static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 
 	for (;;)
 	{
-		smb2fh = smb2_open(fsd->smb2, path, flags);
+		do 
+		{
+			smb2fh = smb2_open(fsd->smb2, path, flags, &r2);
+			if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
+			{
+				if(!handle_connection_fault())
+					return -ENODEV;
+			}
+		} while (r2 == -1 || r2 == SMB2_STATUS_CANCELLED);
+
+		// KPrintF("[smb2_open] r2: %ld\n", r2);
+		// KPrintF("[smb2_open] r2_text: %s\n", nterror_to_str(r2));
 		if (smb2fh != NULL)
 		{
-			fi->fh = (uint64_t)(size_t)smb2fh;
+			// fi->fh = (uint64_t)(size_t)smb2fh;
+			fi->fh = AllocateHandleForPointer(fsd->phr, smb2fh);
+			if (fi->fh == 0)
+			{
+				return -ENOMEM;
+			}
 			return 0;
 		}
 		else
@@ -549,12 +813,22 @@ static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 
 static int smb2fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_create started.\n");
 	struct smb2fh *smb2fh;
 	int            flags;
 	char           pathbuf[MAXPATHLEN];
+	int 			r2;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -570,78 +844,146 @@ static int smb2fs_create(const char *path, mode_t mode, struct fuse_file_info *f
 
 	flags = O_CREAT | O_EXCL | O_RDWR;
 
-	smb2fh = smb2_open(fsd->smb2, path, flags);
+	do 
+	{
+		smb2fh = smb2_open(fsd->smb2, path, flags, &r2);
+		if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while (r2 == -1 || r2 == SMB2_STATUS_CANCELLED);
+
 	if (smb2fh != NULL)
 	{
-		fi->fh = (uint64_t)(size_t)smb2fh;
+		// fi->fh = (uint64_t)(size_t)smb2fh;
+		fi->fh = AllocateHandleForPointer(fsd->phr, smb2fh);
+		if (fi->fh == 0)
+		{
+			return -ENOMEM;
+		}
 		return 0;
 	}
 
-	return -1;
+	return -1; // r2
 }
 
 static int smb2fs_release(const char *path, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_release started.\n");
 	struct smb2fh *smb2fh;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
-	smb2fh = (struct smb2fh *)(size_t)fi->fh;
+	// smb2fh = (struct smb2fh *)(size_t)fi->fh;
+	// if (smb2fh == NULL)
+	// 	return -EINVAL;
+	smb2fh = (struct smb2fh *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
 	if (smb2fh == NULL)
 		return -EINVAL;
 
 	smb2_close(fsd->smb2, smb2fh);
+	RemoveHandle(fsd->phr, (uint32_t) fi->fh);
 	fi->fh = (uint64_t)(size_t)NULL;
 
 	return 0;
 }
 
+
 static int smb2fs_read(const char *path, char *buffer, size_t size,
                        fbx_off_t offset, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_read started with path:\"%s\".\n", path);
 	struct smb2fh *smb2fh;
 	int64_t        new_offset;
 	size_t         max_read_size, count;
 	int            rc = 0;
+	int				rc_open = 0;
 	int            result;
+	char 			*buffer_ref;
 
 	if (fsd == NULL)
-		return -ENODEV;
-
-	smb2fh = (struct smb2fh *)(size_t)fi->fh;
-	if (smb2fh == NULL)
-		return -EINVAL;
-
-	new_offset = smb2_lseek(fsd->smb2, smb2fh, offset, SEEK_SET, NULL);
-	if (new_offset < 0)
 	{
-		return (int)new_offset;
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+
+		if(cfg_handles_rcv)
+		{
+			rc_open = smb2fs_open(path, fi);
+			if(rc_open < 0)
+				return -EIO;
+		}
 	}
 
-	max_read_size = smb2_get_max_read_size(fsd->smb2);
-	//IExec->DebugPrintF("max_read_size: %lu\n", max_read_size);
-	result = 0;
+	do {
+		buffer_ref = buffer;
 
-	while (size > 0)
-	{
-		count = size;
-		if (count > max_read_size)
-			count = max_read_size;
+		smb2fh = (struct smb2fh *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
+		if (smb2fh == NULL)
+			return -EINVAL;
 
-		rc = smb2_read(fsd->smb2, smb2fh, (uint8_t *)buffer, count);
-		if (rc <= 0)
-			break;
+		new_offset = smb2_lseek(fsd->smb2, smb2fh, offset, SEEK_SET, NULL);
+		if (new_offset < 0)
+		{
+			return (int)new_offset;
+		}
 
-		result += rc;
-		buffer += rc;
-		size   -= rc;
-	}
+		max_read_size = smb2_get_max_read_size(fsd->smb2);
+		//IExec->DebugPrintF("max_read_size: %lu\n", max_read_size);
+		result = 0;
 
-	if (rc < 0)
-	{
-		return rc;
-	}
+		while (size > 0)
+		{
+			count = size;
+			if (count > max_read_size)
+				count = max_read_size;
+
+			rc = smb2_read(fsd->smb2, smb2fh, (uint8_t *)buffer_ref, count);
+			if (rc == 0)
+			{
+				break;
+			}
+			else if(rc < -1)
+			{
+				return rc;
+			}
+			else if (rc < 0)
+			{
+				if(!handle_connection_fault())
+					return -ENODEV;
+
+				if(cfg_handles_rcv)
+				{
+					rc_open = smb2fs_open(path, fi);
+					if(rc_open < 0)
+						return -EIO;
+				}
+				else
+				{
+					/* even if connection has reestablished, we do not have a handle recovery for now and need to fail the op */
+					return -EIO;
+				}
+			}
+
+			result += rc;
+			buffer_ref += rc;
+			size   -= rc;
+		}
+	} while(rc < 0);
 
 	return result;
 }
@@ -649,62 +991,110 @@ static int smb2fs_read(const char *path, char *buffer, size_t size,
 static int smb2fs_write(const char *path, const char *buffer, size_t size,
                         fbx_off_t offset, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_write started.\n");
 	struct smb2fh *smb2fh;
 	int64_t        new_offset;
 	size_t         max_write_size, count;
 	int            rc = 0;
+	int				rc_open = 0;
 	int            result;
+	const char		*buffer_ref;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+
+		if(cfg_handles_rcv)
+		{
+			rc_open = smb2fs_open(path, fi);
+			if(rc_open < 0)
+				return -EIO;
+		}
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
 
-	smb2fh = (struct smb2fh *)(size_t)fi->fh;
-	if (smb2fh == NULL)
-		return -EINVAL;
+	do {
+		buffer_ref = buffer;
+		smb2fh = (struct smb2fh *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
+		if (smb2fh == NULL)
+			return -EINVAL;
 
-	new_offset = smb2_lseek(fsd->smb2, smb2fh, offset, SEEK_SET, NULL);
-	if (new_offset < 0)
-	{
-		return (int)new_offset;
-	}
+		new_offset = smb2_lseek(fsd->smb2, smb2fh, offset, SEEK_SET, NULL);
+		if (new_offset < 0)
+		{
+			return (int)new_offset;
+		}
 
-	max_write_size = smb2_get_max_write_size(fsd->smb2);
-	//IExec->DebugPrintF("max_write_size: %lu\n", max_write_size);
-	result = 0;
+		max_write_size = smb2_get_max_write_size(fsd->smb2);
+		//IExec->DebugPrintF("max_write_size: %lu\n", max_write_size);
+		result = 0;
 
-	while (size > 0)
-	{
-		count = size;
-		if (count > max_write_size)
-			count = max_write_size;
+		while (size > 0)
+		{
+			count = size;
+			if (count > max_write_size)
+				count = max_write_size;
 
-		rc = smb2_write(fsd->smb2, smb2fh, (const uint8_t *)buffer, count);
-		if (rc < 0)
-			break;
+			rc = smb2_write(fsd->smb2, smb2fh, (const uint8_t *)buffer_ref, count);
+			if (rc == 0)
+			{
+				break;
+			}
+			else if(rc < -1)
+			{
+				return rc;
+			}
+			else if (rc < 0)
+			{
+				if(!handle_connection_fault())
+					return -ENODEV;
 
-		result += rc;
-		buffer += rc;
-		size   -= rc;
-	}
+				if(cfg_handles_rcv)
+				{
+					rc_open = smb2fs_open(path, fi);
+					if(rc_open < 0)
+						return -EIO;
+				}
+				else
+				{
+					/* even if connection has reestablished, we do not have a handle recovery for now and need to fail the op */
+					return -EIO;
+				}
+			}
 
-	if (rc < 0)
-	{
-		return rc;
-	}
+			result += rc;
+			buffer_ref += rc;
+			size   -= rc;
+		}
+	} while(rc < 0);
 
 	return result;
 }
 
 static int smb2fs_truncate(const char *path, fbx_off_t size)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_truncate started.\n");
 	int  rc;
 	char pathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -718,46 +1108,99 @@ static int smb2fs_truncate(const char *path, fbx_off_t size)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	rc = smb2_truncate(fsd->smb2, path, size);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_truncate(fsd->smb2, path, size);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_ftruncate(const char *path, fbx_off_t size, struct fuse_file_info *fi)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_ftruncate started.\n");
 	struct smb2fh *smb2fh;
 	int            rc;
+	int				rc_open = 0;
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+
+		if(cfg_handles_rcv)
+		{
+			rc_open = smb2fs_open(path, fi);
+			if(rc_open < 0)
+				return -EIO;
+		}
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
 
-	smb2fh = (struct smb2fh *)(size_t)fi->fh;
-	if (smb2fh == NULL)
-		return -EINVAL;
+	
+	do {
+		smb2fh = (struct smb2fh *) HandleToPointer(fsd->phr, (uint32_t) fi->fh);
+		if (smb2fh == NULL)
+			return -EINVAL;
 
-	rc = smb2_ftruncate(fsd->smb2, smb2fh, size);
-	if (rc < 0)
-	{
-		return rc;
-	}
+		rc = smb2_ftruncate(fsd->smb2, smb2fh, size);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+
+			if(cfg_handles_rcv)
+			{
+				rc_open = smb2fs_open(path, fi);
+				if(rc_open < 0)
+					return -EIO;
+			}
+			else
+			{
+				/* even if connection has reestablished, we do not have a handle recovery for now and need to fail the op */
+				return -EIO;
+			}
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_unlink(const char *path)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_unlink started.\n");
 	int  rc;
 	char pathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -771,23 +1214,43 @@ static int smb2fs_unlink(const char *path)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	rc = smb2_unlink(fsd->smb2, path);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_unlink(fsd->smb2, path);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_rmdir(const char *path)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_rmdir started.\n");
 	struct smb2dir *smb2dir;
 	int  rc;
 	char pathbuf[MAXPATHLEN];
+	int r2;
+	struct smb2dirent *ent;
+	BOOL notempty = FALSE;
+
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -802,48 +1265,68 @@ static int smb2fs_rmdir(const char *path)
 	if (path[0] == '/') path++; /* Remove initial slash */
 
 	/* Make sure to return correct error for non-empty directory */
-	smb2dir = smb2_opendir(fsd->smb2, path);
-	if (smb2dir != NULL)
-	{
-		struct smb2dirent *ent;
-		BOOL notempty = FALSE;
-
-		while ((ent = smb2_readdir(fsd->smb2, smb2dir)) != NULL)
+	do {
+		smb2dir = smb2_opendir(fsd->smb2, path, &r2);
+		if (smb2dir == NULL)
 		{
-			if (strcmp(ent->name, ".") != 0 && strcmp(ent->name, "..") != 0)
+			if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
 			{
-				notempty = TRUE;
-				break;
+				if(!handle_connection_fault())
+					return -ENODEV;
 			}
+			else
+				return -ENOENT;
 		}
-		smb2_closedir(fsd->smb2, smb2dir);
+	} while(smb2dir == NULL);
 
-		if (notempty)
+	
+	while ((ent = smb2_readdir(fsd->smb2, smb2dir)) != NULL)
+	{
+		if (strcmp(ent->name, ".") != 0 && strcmp(ent->name, "..") != 0)
 		{
-			return -ENOTEMPTY;
+			notempty = TRUE;
+			break;
 		}
 	}
-	else
+	smb2_closedir(fsd->smb2, smb2dir);
+
+	if (notempty)
 	{
-		return -ENOENT;
+		return -ENOTEMPTY;
 	}
 
-	rc = smb2_rmdir(fsd->smb2, path);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_rmdir(fsd->smb2, path);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_readlink(const char *path, char *buffer, size_t size)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_readlink started.\n");
 	int  rc;
 	char pathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rootdir != NULL)
 	{
@@ -854,23 +1337,39 @@ static int smb2fs_readlink(const char *path, char *buffer, size_t size)
 
 	if (path[0] == '/') path++; /* Remove initial slash */
 
-	rc = smb2_readlink(fsd->smb2, path, buffer, size);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_readlink(fsd->smb2, path, buffer, size);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_rename(const char *srcpath, const char *dstpath)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_rename started.\n");
 	int  rc;
 	char srcpathbuf[MAXPATHLEN];
 	char dstpathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -888,17 +1387,25 @@ static int smb2fs_rename(const char *srcpath, const char *dstpath)
 	if (srcpath[0] == '/') srcpath++; /* Remove initial slash */
 	if (dstpath[0] == '/') dstpath++;
 
-	rc = smb2_rename(fsd->smb2, srcpath, dstpath);
-	if (rc < 0)
-	{
-		return rc;
-	}
+	do {
+		rc = smb2_rename(fsd->smb2, srcpath, dstpath);
+		if(rc < -1)
+		{
+			return rc;
+		}
+		else if (rc < 0)
+		{
+			if(!handle_connection_fault())
+				return -ENODEV;
+		}
+	} while(rc < 0);
 
 	return 0;
 }
 
 static int smb2fs_relabel(const char *label)
 {
+	// KPrintF((STRPTR)"[smb2fs] smb2fs_relabel started.\n");
 	/* Nothing to do here */
 	return 0;
 }
@@ -937,13 +1444,13 @@ static void remove_double_quotes(char *argstr)
 	end   = start + strlen(start);
 
 	/* Strip leading white space characters */
-	while (isspace((unsigned char)start[0]))
+	while (isspace(start[0]))
 	{
 		start++;
 	}
 
 	/* Strip trailing white space characters */
-	while (end > start && isspace((unsigned char)end[-1]))
+	while (end > start && isspace(end[-1]))
 	{
 		end--;
 	}

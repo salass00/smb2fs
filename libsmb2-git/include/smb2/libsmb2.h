@@ -457,7 +457,7 @@ int smb2_opendir_async(struct smb2_context *smb2, const char *path,
  *
  * Returns NULL on failure.
  */
-struct smb2dir *smb2_opendir(struct smb2_context *smb2, const char *path);
+struct smb2dir *smb2_opendir(struct smb2_context *smb2, const char *path, int *r2);
 
 /*
  * closedir()
@@ -537,7 +537,7 @@ int smb2_open_async(struct smb2_context *smb2, const char *path, int flags,
  *
  * Returns NULL on failure.
  */
-struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags);
+struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags, int *r2);
 
 /*
  * CLOSE
