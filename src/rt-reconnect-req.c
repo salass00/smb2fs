@@ -48,7 +48,7 @@ LONG request_reconnect(const char *server)
 
         char choices[] = "Reconnect|Abort";
 
-        result = rtEZRequest(bodytext, choices, NULL, (struct TagItem *) tags);
+        result = rtEZRequestA(bodytext, choices, NULL, NULL, (struct TagItem *) tags);
 
 		CloseLibrary(ReqToolsBase);
 
