@@ -312,7 +312,7 @@ static void smb2fs_destroy(void *initret)
 #include "libsmb2-private.h"
 
 // Debug function to print 'smb2_context'
-void debug_print_smb2_context(const struct smb2_context *ctx) {
+/* static void debug_print_smb2_context(const struct smb2_context *ctx) {
     KPrintF("SMB2 Context:\n");
     KPrintF("Socket FD: %ld\n", ctx->fd);
 	KPrintF("Connecting FDs: %lu\n", ctx->connecting_fds);
@@ -342,7 +342,7 @@ void debug_print_smb2_context(const struct smb2_context *ctx) {
         case SMB2_VERSION_0311: KPrintF("Version: SMB2_0311\n"); break;
         default: KPrintF("Version: Unknown (%x)\n", ctx->version); break;
     }
-}
+} */
 
 static int handle_connection_fault()
 {
