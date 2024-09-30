@@ -1,3 +1,7 @@
+PLEASE_NOTE: This Release (53.8) does only support the m86k-amigaos target. I have no way to test it for the other targets (AROS, OS4) and will therefor not release a version I can't support. A pull request to the original repository is made.
+
+53.8 is an attempt to solve some longer lasting issues with connection faults. Details can be read in the release notes.
+
 smb2-handler is a filesystem for accessing files remotely using the SMB2/3
 protocols. The protocol implementation is based on the currently latest git
 version of libsmb2 (https://github.com/sahlberg/libsmb2).
@@ -19,7 +23,7 @@ Startup   = "<args>"
 
 Where <args> should follow the template:
 
-URL/A,USER,PASSWORD,VOLUME,READONLY/S,NOPASSWORDREQ/S
+URL/A,USER,PASSWORD,VOLUME,READONLY/S,NOPASSWORDREQ/S,NOHANDLESRCV/S,RECONNECTREQ/S
 
 URL is the address of the samba share in the format:
 smb://[<domain;][<username>[:<password>]@]<host>[:<port>]/<share>/<path>
@@ -34,6 +38,10 @@ READONLY sets the filesystem to read only mode.
 
 NOPASSWORDREQ stops a password requester from being opened if no password is
 specified.
+
+NOHANDLESRCV/S disables the automatic recovery of filehandles after a connection fault is resolved. This should not be needed, but the SMB server might still cause lock issue, reported by "..busy" "..in use" errors on workbench. This can't be solved within this handler, unless libsmb2 supports durable handles.
+
+RECONNECTREQ/S requests the user if a reconnection should be attempted. This is part of an initial implementation of connection fault handling and might not be needed, as the final implementation relies on OS "No disk - retry" mechanism. Still, if you have issues, you might try this option. Depending on user feedback this option will be removed in future releases.
 
 To connect to the share myshare on server mypc using username "myuser" and
 password "password123" use:

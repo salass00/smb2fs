@@ -2,6 +2,7 @@
  * smb2-handler - SMB2 file system client
  *
  * Copyright (C) 2022-2023 Fredrik Wikstrom <fredrik@a500.org>
+ * Copyright (C) 2024 Walter Licht https://github.com/sirwalt
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,29 +20,40 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef SMB2FS_H
-#define SMB2FS_H 1
+#include "smb2fs.h"
+#include "smb2-handler_rev.h"
 
 #include <proto/exec.h>
-#include <proto/dos.h>
-#include <proto/filesysbox.h>
 
-#define ID_SMB2_DISK (0x534D4202UL)
+#include <libraries/reqtools.h>
+#include <proto/reqtools.h>
 
-#ifdef __amigaos4__
-struct Interface *open_interface(CONST_STRPTR name, int version);
-void close_interface(struct Interface *interface);
-#endif
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-char *request_password(const char *user, const char *server);
-void request_error(const char *error_string, ...);
-LONG request_reconnect(const char *server);
+LONG request_reconnect(const char *server)
+{
+	struct Library *ReqToolsBase;
 
-int smb2fs_main(struct DosPacket *pkt);
+	ReqToolsBase = OpenLibrary((STRPTR)"reqtools.library", 38);
+	if (ReqToolsBase != NULL)
+	{
+		char bodytext[256];
+        LONG result;
 
-#ifdef __libnix__
-size_t strlcpy(char *dst, const char *src, size_t size);
-size_t strlcat(char *dst, const char *src, size_t size);
-#endif
+		snprintf(bodytext, sizeof(bodytext), "Connection to server %s lost.", server);
 
-#endif /* SMB2FS_H */
+        const ULONG tags[] = { RTEZ_ReqTitle, (ULONG)"SMB Connection", TAG_END };
+
+        char choices[] = "Reconnect|Abort";
+
+        result = rtEZRequest(bodytext, choices, NULL, (struct TagItem *) tags);
+
+		CloseLibrary(ReqToolsBase);
+
+        return result;
+	}
+
+    return -1;
+}

@@ -203,7 +203,7 @@ static void opendir_cb(struct smb2_context *smb2, int status,
         cb_data->ptr = command_data;
 }
 
-struct smb2dir *smb2_opendir(struct smb2_context *smb2, const char *path)
+struct smb2dir *smb2_opendir(struct smb2_context *smb2, const char *path, int *r2)
 {
         struct sync_cb_data *cb_data;
         void *ptr;
@@ -211,22 +211,26 @@ struct smb2dir *smb2_opendir(struct smb2_context *smb2, const char *path)
         cb_data = calloc(1, sizeof(struct sync_cb_data));
         if (cb_data == NULL) {
                 smb2_set_error(smb2, "Failed to allocate sync_cb_data");
+                *r2 = -1;
                 return NULL;
         }
 
 	if (smb2_opendir_async(smb2, path,
                                opendir_cb, cb_data) != 0) {
 		smb2_set_error(smb2, "smb2_opendir_async failed");
+                *r2 = -1;
                 free(cb_data);
 		return NULL;
 	}
 
 	if (wait_for_reply(smb2, cb_data) < 0) {
                 cb_data->status = SMB2_STATUS_CANCELLED;
+                *r2 = cb_data->status;
                 return NULL;
         }
 
 	ptr = cb_data->ptr;
+        *r2 = cb_data->status;
         free(cb_data);
         return ptr;
 }
@@ -248,7 +252,7 @@ static void open_cb(struct smb2_context *smb2, int status,
         cb_data->ptr = command_data;
 }
 
-struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags)
+struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags, int *r2)
 {
         struct sync_cb_data *cb_data;
         void *ptr;
@@ -256,6 +260,7 @@ struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags)
         cb_data = calloc(1, sizeof(struct sync_cb_data));
         if (cb_data == NULL) {
                 smb2_set_error(smb2, "Failed to allocate sync_cb_data");
+                *r2 = -1;
                 return NULL;
         }
 
@@ -263,15 +268,18 @@ struct smb2fh *smb2_open(struct smb2_context *smb2, const char *path, int flags)
                                open_cb, cb_data) != 0) {
 		smb2_set_error(smb2, "smb2_open_async failed");
                 free(cb_data);
+                *r2 = -1;
 		return NULL;
 	}
 
 	if (wait_for_reply(smb2, cb_data) < 0) {
                 cb_data->status = SMB2_STATUS_CANCELLED;
+                *r2 = cb_data->status;
                 return NULL;
         }
 
 	ptr = cb_data->ptr;
+        *r2 = cb_data->status;
         free(cb_data);
         return ptr;
 }
