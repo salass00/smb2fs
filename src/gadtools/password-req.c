@@ -35,6 +35,10 @@
 
 #include <SDI/SDI_compiler.h>
 
+#ifndef MAX
+#define MAX(a,b) ((a)>(b)?(a):(b))
+#endif
+
 static inline void strmove(char *dst, const char *src)
 {
 	if (dst != src)
@@ -106,6 +110,14 @@ ULONG edithook_entry(REG(a0, struct Hook *hook), REG(a2, struct SGWork *sgw), RE
 	return res;
 }
 
+enum
+{
+	GID_DUMMY,
+	GID_STRING,
+	GID_OKAY,
+	GID_CANCEL
+};
+
 char *request_password(const char *user, const char *server)
 {
 	struct IntuitionBase *IntuitionBase;
@@ -136,7 +148,12 @@ char *request_password(const char *user, const char *server)
 					{
 						struct TextFont *font;
 						char bodytext[256];
+						const char okaytext[] = "Ok";
+						const char canceltext[] = "Cancel";
 						UWORD bodytextwidth;
+						UWORD okaytextwidth;
+						UWORD canceltextwidth;
+						UWORD buttonwidth;
 						struct RastPort temp_rp;
 						struct Gadget *glist, *gad;
 						struct Gadget *string;
@@ -157,17 +174,20 @@ char *request_password(const char *user, const char *server)
 						SetFont(&temp_rp, font);
 
 						bodytextwidth = TextLength(&temp_rp, (CONST_STRPTR)bodytext, strlen(bodytext));
+						okaytextwidth = TextLength(&temp_rp, (CONST_STRPTR)okaytext, strlen(okaytext));
+						canceltextwidth = TextLength(&temp_rp, (CONST_STRPTR)canceltext, strlen(canceltext));
+						buttonwidth = MAX(okaytextwidth, canceltextwidth) + 6;
 
 						gad = CreateContext(&glist);
 
 						bzero(&ng, sizeof(ng));
 						ng.ng_LeftEdge   = screen->WBorLeft + 2;
-						ng.ng_TopEdge    = screen->WBorTop + (screen->Font->ta_YSize * 2) + 6;
+						ng.ng_TopEdge    = screen->WBorTop + (font->tf_YSize * 2) + 6;
 						ng.ng_Width      = bodytextwidth;
-						ng.ng_Height     = screen->Font->ta_YSize + 6;
+						ng.ng_Height     = font->tf_YSize + 6;
 						ng.ng_GadgetText = (STRPTR)bodytext;
 						ng.ng_TextAttr   = screen->Font;
-						ng.ng_GadgetID   = 1984;
+						ng.ng_GadgetID   = GID_STRING;
 						ng.ng_Flags      = PLACETEXT_ABOVE;
 						ng.ng_VisualInfo = vi;
 						string = gad = CreateGadget(STRING_KIND, gad, &ng,
@@ -177,6 +197,34 @@ char *request_password(const char *user, const char *server)
 							GTST_EditHook, (Tag)&edithook,
 							TAG_END);
 
+						bzero(&ng, sizeof(ng));
+						ng.ng_LeftEdge   = screen->WBorLeft + 2;
+						ng.ng_TopEdge    = screen->WBorTop + (font->tf_YSize * 3) + 14;
+						ng.ng_Width      = buttonwidth;
+						ng.ng_Height     = font->tf_YSize + 6;
+						ng.ng_GadgetText = (STRPTR)okaytext;
+						ng.ng_TextAttr   = screen->Font;
+						ng.ng_GadgetID   = GID_OKAY;
+						ng.ng_Flags      = PLACETEXT_IN;
+						ng.ng_VisualInfo = vi;
+						gad = CreateGadget(BUTTON_KIND, gad, &ng,
+							GA_RelVerify,  TRUE,
+							TAG_END);
+
+						bzero(&ng, sizeof(ng));
+						ng.ng_LeftEdge   = screen->WBorLeft + 2 + bodytextwidth - buttonwidth;
+						ng.ng_TopEdge    = screen->WBorTop + (font->tf_YSize * 3) + 14;
+						ng.ng_Width      = buttonwidth;
+						ng.ng_Height     = font->tf_YSize + 6;
+						ng.ng_GadgetText = (STRPTR)canceltext;
+						ng.ng_TextAttr   = screen->Font;
+						ng.ng_GadgetID   = GID_CANCEL;
+						ng.ng_Flags      = PLACETEXT_IN;
+						ng.ng_VisualInfo = vi;
+						gad = CreateGadget(BUTTON_KIND, gad, &ng,
+							GA_RelVerify,  TRUE,
+							TAG_END);
+
 						if (gad != NULL)
 						{
 							UWORD width, height;
@@ -184,7 +232,7 @@ char *request_password(const char *user, const char *server)
 							struct Window *window;
 
 							width = screen->WBorLeft + screen->WBorRight + bodytextwidth + 4;
-							height = screen->WBorTop + screen->WBorBottom + (screen->Font->ta_YSize * 3) + 14;
+							height = screen->WBorTop + screen->WBorBottom + (font->tf_YSize * 4) + 22;
 
 							if (width > screen->Width)
 								width = screen->Width;
@@ -231,13 +279,26 @@ char *request_password(const char *user, const char *server)
 
 											case IDCMP_GADGETUP:
 												gad = imsg->IAddress;
-												if (gad->GadgetID == 1984 && imsg->Code == 0)
+												switch (gad->GadgetID)
 												{
-													if (buffer[0] != '\0')
-													{
+													case GID_STRING:
+														if (imsg->Code != 0)
+															break;
+
+														/* Fall through */
+													case GID_OKAY:
+														if (buffer[0] == '\0')
+														{
+															DisplayBeep(screen);
+															break;
+														}
+
 														password = strdup(buffer);
+
+														/* Fall through */
+													case GID_CANCEL:
 														done = TRUE;
-													}
+														break;
 												}
 												break;
 
@@ -272,7 +333,7 @@ char *request_password(const char *user, const char *server)
 }
 
 /* Compile with:
-   m68k-amigaos-gcc -O2 -g -Wall -I.. -DSTANDALONE_TEST -o gadtools-password-req gadtools-password-req.c
+   m68k-amigaos-gcc -O2 -g -Wall -I../.. -I.. -DSTANDALONE_TEST -o password-req password-req.c
  */
 #ifdef STANDALONE_TEST
 int main(void)
