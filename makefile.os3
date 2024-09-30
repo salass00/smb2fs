@@ -9,7 +9,7 @@ LIBSMB2DIR = libsmb2-git
 OPTIMIZE = -O2 -noixemul -fno-common -fomit-frame-pointer
 # -save-temps
 DEBUG    = -g
-INCLUDES = -I. -I./$(LIBSMB2DIR)/include
+INCLUDES = -I. -I./src -I./$(LIBSMB2DIR)/include
 DEFINES  = 
 WARNINGS = -Wall -Wwrite-strings -Wno-pointer-sign -Wno-int-conversion -Werror
 
@@ -19,8 +19,8 @@ LIBS    = -ldebug
 
 STRIPFLAGS = -R.comment
 
-SRCS = start_os3.c main.c rt-password-req.c error-req.c time.c strlcpy.c \
-       strdup.c malloc.c getpid.c marshalling.c rt-reconnect-req.c
+SRCS = start_os3.c main.c error-req.c time.c strlcpy.c strdup.c malloc.c \
+       getpid.c marshalling.c reqtools/password-req.c reqtools/reconnect-req.c
 
 ARCH_000 = -mcpu=68000 -mtune=68000
 OBJS_000 = $(addprefix obj/68000/,$(SRCS:.c=.o))

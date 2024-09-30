@@ -8,7 +8,7 @@ LIBSMB2DIR = libsmb2-git
 
 OPTIMIZE = -O2
 DEBUG    = -gstabs
-INCLUDES = -I. -I./$(LIBSMB2DIR)/include
+INCLUDES = -I. -I./src -I./$(LIBSMB2DIR)/include
 DEFINES  = 
 WARNINGS = -Wall -Wwrite-strings -Werror
 
@@ -18,8 +18,8 @@ LIBS    =
 
 STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start.c main.c reaction-password-req.c error-req.c time.c bsdsocket-stubs.c \
-       marshalling.c
+SRCS = start.c main.c error-req.c time.c bsdsocket-stubs.c marshalling.c \
+       reaction/password-req.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
