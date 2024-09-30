@@ -20,6 +20,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#ifndef MARSHALLING_H
+#define MARSHALLING_H 1
+
 #define GROWSIZE 1024
 #define INCARNATION_BITS 10
 #define INDEX_BITS 22
@@ -48,3 +51,4 @@ void RemoveHandle(struct PointerHandleRegistry* registry, uint32_t handle);
 struct PointerHandleRegistry* AllocateNewRegistry(uint32_t incarnation);
 void FreeRegistry(struct PointerHandleRegistry* registry);
 
+#endif /* MARSHALLING_H */
