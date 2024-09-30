@@ -3,6 +3,7 @@
 # Ignore libsmb2 and smb2fs generated files
 bin
 obj
+password-req
 # Ignore release archives
 *.7z
 *.iso
