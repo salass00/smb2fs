@@ -2728,6 +2728,141 @@ smb2_echo_async(struct smb2_context *smb2,
         return 0;
 }
 
+struct utimens_cb_data {
+        smb2_command_cb cb;
+        void *cb_data;
+
+        uint32_t status;
+};
+
+static void
+utimens_cb_1(struct smb2_context *smb2, int status,
+             void *command_data _U_, void *private_data)
+{
+        struct utimens_cb_data *utimens_data = private_data;
+
+        if (utimens_data->status == SMB2_STATUS_SUCCESS) {
+                utimens_data->status = status;
+        }
+}
+
+static void
+utimens_cb_2(struct smb2_context *smb2, int status,
+             void *command_data _U_, void *private_data)
+{
+        struct utimens_cb_data *utimens_data = private_data;
+        struct smb2_query_info_reply *rep = command_data;
+        struct smb2_file_all_info *fs = rep->output_buffer;
+        struct smb2_set_info_request si_req;
+
+        if (utimens_data->status == SMB2_STATUS_SUCCESS) {
+                utimens_data->status = status;
+        }
+        if (utimens_data->status != SMB2_STATUS_SUCCESS) {
+                return;
+        }
+
+        si_req.info_type = SMB2_0_INFO_FILE;
+        si_req.file_info_class = SMB2_FILE_BASIC_INFORMATION;
+        //si_req.input_data = ;
+        //si_req.additional_information = ;
+        //si_req.file_id = ;
+}
+
+static void
+utimens_cb_4(struct smb2_context *smb2, int status,
+             void *command_data _U_, void *private_data)
+{
+        struct utimens_cb_data *utimens_data = private_data;
+
+        if (utimens_data->status == SMB2_STATUS_SUCCESS) {
+                utimens_data->status = status;
+        }
+
+        utimens_data->cb(smb2, -nterror_to_errno(utimens_data->status),
+                         NULL, utimens_data->cb_data);
+        free(utimens_data);
+}
+
+int smb2_utimens_async(struct smb2_context *smb2, const char *path,
+                       const struct timespec tv[2], smb2_command_cb cb,
+                       void *cb_data)
+{
+        struct utimens_cb_data *utimens_data;
+        struct smb2_create_request cr_req;
+        struct smb2_query_info_request qi_req;
+        struct smb2_close_request cl_req;
+        struct smb2_pdu *pdu, *next_pdu;
+
+        if (smb2 == NULL) {
+                return -EINVAL;
+        }
+
+        utimens_data = calloc(1, sizeof(struct utimens_cb_data));
+        if (utimens_data == NULL) {
+                smb2_set_error(smb2, "Failed to allocate trunc_data");
+                return -ENOMEM;
+        }
+
+        utimens_data->cb = cb;
+        utimens_data->cb_data = cb_data;
+
+        /* CREATE command */
+        memset(&cr_req, 0, sizeof(struct smb2_create_request));
+        cr_req.requested_oplock_level = SMB2_OPLOCK_LEVEL_NONE;
+        cr_req.impersonation_level = SMB2_IMPERSONATION_IMPERSONATION;
+        cr_req.desired_access = SMB2_FILE_READ_ATTRIBUTES | SMB2_FILE_READ_EA;
+        cr_req.file_attributes = 0;
+        cr_req.share_access = SMB2_FILE_SHARE_READ | SMB2_FILE_SHARE_WRITE;
+        cr_req.create_disposition = SMB2_FILE_OPEN;
+        cr_req.create_options = 0;
+        cr_req.name = path;
+
+        pdu = smb2_cmd_create_async(smb2, &cr_req, utimens_cb_1, utimens_data);
+        if (pdu == NULL) {
+                smb2_set_error(smb2, "Failed to create create command");
+                free(utimens_data);
+                return -1;
+        }
+
+        /* QUERY INFO command */
+        memset(&qi_req, 0, sizeof(struct smb2_query_info_request));
+        qi_req.info_type = SMB2_0_INFO_FILE;
+        qi_req.file_info_class = SMB2_FILE_BASIC_INFORMATION;
+        qi_req.output_buffer_length = DEFAULT_OUTPUT_BUFFER_LENGTH;
+        qi_req.additional_information = 0;
+        qi_req.flags = 0;
+        memcpy(qi_req.file_id, compound_file_id, SMB2_FD_SIZE);
+
+        next_pdu = smb2_cmd_query_info_async(smb2, &qi_req,
+                                             utimens_cb_2, utimens_data);
+        if (next_pdu == NULL) {
+                smb2_set_error(smb2, "Failed to create query command");
+                free(utimens_data);
+                smb2_free_pdu(smb2, pdu);
+                return -1;
+        }
+        smb2_add_compound_pdu(smb2, pdu, next_pdu);
+
+        /* CLOSE command */
+        memset(&cl_req, 0, sizeof(struct smb2_close_request));
+        cl_req.flags = SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB;
+        memcpy(cl_req.file_id, compound_file_id, SMB2_FD_SIZE);
+
+        next_pdu = smb2_cmd_close_async(smb2, &cl_req, utimens_cb_4, utimens_data);
+        if (next_pdu == NULL) {
+                utimens_data->cb(smb2, -ENOMEM, NULL, utimens_data->cb_data);
+                free(utimens_data);
+                smb2_free_pdu(smb2, pdu);
+                return -1;
+        }
+        smb2_add_compound_pdu(smb2, pdu, next_pdu);
+
+        smb2_queue_pdu(smb2, pdu);
+
+        return 0;
+}
+
 uint32_t
 smb2_get_max_read_size(struct smb2_context *smb2)
 {

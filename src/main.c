@@ -1205,6 +1205,33 @@ static int smb2fs_ftruncate(const char *path, fbx_off_t size, struct fuse_file_i
 	return 0;
 }
 
+static int smb2fs_utimens(const char *path, const struct timespec tv[2])
+{
+	int  rc;
+	char pathbuf[MAXPATHLEN];
+
+	if (fsd == NULL)
+		return -ENODEV;
+
+	if (fsd->rdonly)
+		return -EROFS;
+
+	if (fsd->rootdir != NULL)
+	{
+		strlcpy(pathbuf, fsd->rootdir, sizeof(pathbuf));
+		strlcat(pathbuf, path, sizeof(pathbuf));
+		path = pathbuf;
+	}
+
+	rc = smb2_utimens(fsd->smb2, path, tv);
+	if (rc < 0)
+	{
+		return rc;
+	}
+
+	return 0;
+}
+
 static int smb2fs_unlink(const char *path)
 {
 	// KPrintF((STRPTR)"[smb2fs] smb2fs_unlink started.\n");
@@ -1448,6 +1475,7 @@ static struct fuse_operations smb2fs_ops =
 	.write      = smb2fs_write,
 	.truncate   = smb2fs_truncate,
 	.ftruncate  = smb2fs_ftruncate,
+	.utimens    = smb2fs_utimens,
 	.unlink     = smb2fs_unlink,
 	.rmdir      = smb2fs_rmdir,
 	.readlink   = smb2fs_readlink,
