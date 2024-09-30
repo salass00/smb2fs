@@ -28,7 +28,8 @@
 #define INDEX_BITS 22
 #define MAX_INDEX ((1 << INDEX_BITS) - 1)
 
-#include <stdlib.h>
+#include <stddef.h>
+#include <stdint.h>
 
 struct FreeIndexNode {
     size_t index;

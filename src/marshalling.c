@@ -19,11 +19,15 @@
  * distribution in the file COPYING); if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <debuglib.h>
+
 #include "marshalling.h"
 
+//#include <debuglib.h>
+#include <stdlib.h>
+#include <string.h>
+
 struct PointerHandleRegistry* AllocateNewRegistry(uint32_t incarnation) {
-    ASSERT(incarnation != 0)
+    //ASSERT(incarnation != 0)
 
     struct PointerHandleRegistry* registry = calloc(1, sizeof(struct PointerHandleRegistry));
     if(registry == NULL)
