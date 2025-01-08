@@ -89,3 +89,8 @@ smb2-handler 53.8 (15.5.2024)
   reported by "..busy" "..in use" errors on workbench. This can't be solved within this handler,
   unless libsmb2 supports durable handles.
 
+
+smb2-handler 53.9 (d.m.2025)
+
+- AmigaOS 3: Added a version compiled for the 68060 CPU.
+

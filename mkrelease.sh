@@ -24,6 +24,7 @@ if [ "$HOST" = "m68k-amigaos" ]; then
   cp -p README-OS3 ${DESTDIR}/smb2fs/README
   cp -p bin/smb2-handler.000 ${DESTDIR}/smb2fs/L
   cp -p bin/smb2-handler.020 ${DESTDIR}/smb2fs/L
+  cp -p bin/smb2-handler.060 ${DESTDIR}/smb2fs/L
 else
   cp -p Install-AROS ${DESTDIR}/smb2fs/Install
   cp -p README-AROS ${DESTDIR}/smb2fs/README
