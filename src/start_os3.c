@@ -51,7 +51,7 @@ extern int setup_malloc(void);
 extern int cleanup_malloc(void);
 
 #ifdef __AROS__
-AROS_UFH3(int, startup,
+__startup AROS_UFH3(int, startup,
 	AROS_UFHA(STRPTR, argstr, A0),
 	AROS_UFHA(ULONG, arglen, D0),
 	AROS_UFHA(struct ExecBase *, sysbase, A6)
