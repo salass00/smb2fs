@@ -46,7 +46,17 @@ static inline size_t get_malloc_size(const void *ptr) {
 void *calloc(size_t num, size_t size) {
 	size *= num;
 	void *ptr = malloc(size);
+#if defined(__AROS__)
+	// -O2 on GCC 6.5.0 leads to wrong code generation,
+	// no call to malloc or bzero and jmp to calloc again
+	if (ptr != NULL)
+	{
+		char *p = (char *)ptr;
+		while(size-- != 0) {*p = 0; p++;}
+	}
+#else
 	if (ptr != NULL) bzero(ptr, size);
+#endif
 	return ptr;
 }
 
