@@ -58,7 +58,16 @@
 #endif
 
 #include <errno.h>
+#if defined(__AROS__)
+#define asprintf asprintf_c
+#define vasprintf vasprintf_c
+#endif
 #include <stdio.h>
+#if defined(__AROS__)
+#undef asprintf
+#undef vasprintf
+#include "asprintf.h"
+#endif
 
 #ifdef HAVE_TIME_H
 #include <time.h>
@@ -72,7 +81,7 @@
 #include <sys/socket.h>
 #endif
 
-#if defined(_WIN32) || defined(__AROS__)
+#if defined(_WIN32)
 #include "asprintf.h"
 #endif
 
