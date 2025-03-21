@@ -31,12 +31,8 @@ struct ExecBase *SysBase;
 struct DosLibrary *DOSBase;
 struct UtilityBase *UtilityBase;
 #ifdef __AROS__
-#ifndef NO_AROSC_LIB
-struct Library *aroscbase;
-#else
 struct Library *StdlibBase;
 struct Library *CrtBase;
-#endif
 #endif
 struct Library *FileSysBoxBase;
 struct Library *SocketBase;
@@ -45,12 +41,8 @@ static const TEXT vstring[];
 static const TEXT dosName[];
 static const TEXT utilityName[];
 #ifdef __AROS__
-#ifndef NO_AROSC_LIB
-static const TEXT aroscName[];
-#else
 static const TEXT stdlibName[];
 static const TEXT crtName[];
-#endif
 #endif
 static const TEXT filesysboxName[];
 static const TEXT bsdsocketName[];
@@ -59,7 +51,7 @@ extern int setup_malloc(void);
 extern int cleanup_malloc(void);
 
 #ifdef __AROS__
-AROS_UFH3(int, startup,
+__startup AROS_UFH3(int, startup,
 	AROS_UFHA(STRPTR, argstr, A0),
 	AROS_UFHA(ULONG, arglen, D0),
 	AROS_UFHA(struct ExecBase *, sysbase, A6)
@@ -99,13 +91,6 @@ int startup(void)
 	}
 
 #ifdef __AROS__
-#ifndef NO_AROSC_LIB
-	aroscbase = OpenLibrary(aroscName, 41);
-	if (aroscbase == NULL)
-	{
-		goto cleanup;
-	}
-#else
 	StdlibBase = OpenLibrary(stdlibName, 1);
 	if (StdlibBase == NULL)
 	{
@@ -116,7 +101,6 @@ int startup(void)
 	{
 		goto cleanup;
 	}
-#endif
 #endif
 
 	me = (struct Process *)FindTask(NULL);
@@ -189,13 +173,6 @@ cleanup:
 	}
 
 #ifdef __AROS__
-#ifndef NO_AROSC_LIB
-	if (aroscbase != NULL)
-	{
-		CloseLibrary(aroscbase);
-		aroscbase = NULL;
-	}
-#else
 	if (CrtBase != NULL)
 	{
 		CloseLibrary(CrtBase);
@@ -206,7 +183,6 @@ cleanup:
 		CloseLibrary(StdlibBase);
 		StdlibBase = NULL;
 	}
-#endif
 #endif
 
 	if (UtilityBase != NULL)
@@ -238,12 +214,8 @@ static const TEXT vstring[] = VSTRING;
 static const TEXT dosName[] = "dos.library";
 static const TEXT utilityName[] = "utility.library";
 #ifdef __AROS__
-#ifndef NO_AROSC_LIB
-static const TEXT aroscName[] = "arosc.library";
-#else
 static const TEXT stdlibName[] = "stdlib.library";
 static const TEXT crtName[] = "crt.library";
-#endif
 #endif
 static const TEXT filesysboxName[] = "filesysbox.library";
 static const TEXT bsdsocketName[] = "bsdsocket.library";

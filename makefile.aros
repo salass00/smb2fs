@@ -16,15 +16,9 @@ WARNINGS = -Wall -Werror
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(INCLUDES) $(DEFINES) $(WARNINGS)
 LDFLAGS = -nostartfiles
-LIBS    = -larosc -ldebug
+LIBS    = -ldebug
 
 MKFLAGS =
-
-ifneq (i386,$(CPU))
-	MKFLAGS += CPU=$(CPU)
-	DEFINES += -DNO_AROSC_LIB
-	LIBS = -ldebug
-endif
 
 ifneq (,$(SYSROOT))
 	CFLAGS  := --sysroot=$(SYSROOT) $(CFLAGS)
@@ -33,7 +27,7 @@ ifneq (,$(SYSROOT))
 endif
 
 SRCS = start_os3.c main.c error-req.c time.c strdup.c malloc.c getpid.c \
-       marshalling.c mui/password-req.c
+       marshalling.c mui/password-req.c reqtools/reconnect-req.c
 
 OBJS = $(addprefix obj/$(CPU)/,$(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
