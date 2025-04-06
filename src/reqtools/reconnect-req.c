@@ -44,7 +44,11 @@ LONG request_reconnect(const char *server)
 
 		snprintf(bodytext, sizeof(bodytext), "Connection to server %s lost.", server);
 
-        const ULONG tags[] = { RTEZ_ReqTitle, (ULONG)"SMB Connection", TAG_END };
+        const struct TagItem tags[] =
+        {
+            { RTEZ_ReqTitle, (IPTR)"SMB Connection" },
+            { TAG_END }
+        };
 
         char choices[] = "Reconnect|Abort";
 
