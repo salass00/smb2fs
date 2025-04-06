@@ -17,7 +17,7 @@ void cleanup_malloc(void) {
 	DeletePool(mempool);
 }
 
-void *malloc(size_t size) {
+void *int_malloc(size_t size) {
 	size_t *pmem = AllocPooled(mempool, size + sizeof(size_t) + ALLOC_EXTRA_BYTES);
 	if (pmem != NULL) {
 		*pmem++ = size;
@@ -25,6 +25,13 @@ void *malloc(size_t size) {
 		errno = ENOMEM;
 	return pmem;
 }
+
+// workaround needed for AROS, if int_malloc is called malloc, calloc miscompiles for some reason
+// using this proxy function solves miscompilation
+void *malloc(size_t size) {
+	return int_malloc(size);
+}
+
 
 void free(void *ptr) {
 	if (ptr != NULL) {
@@ -46,17 +53,7 @@ static inline size_t get_malloc_size(const void *ptr) {
 void *calloc(size_t num, size_t size) {
 	size *= num;
 	void *ptr = malloc(size);
-#if defined(__AROS__)
-	// -O2 on GCC 6.5.0 leads to wrong code generation,
-	// no call to malloc or bzero and jmp to calloc again
-	if (ptr != NULL)
-	{
-		char *p = (char *)ptr;
-		while(size-- != 0) {*p = 0; p++;}
-	}
-#else
 	if (ptr != NULL) bzero(ptr, size);
-#endif
 	return ptr;
 }
 
