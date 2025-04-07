@@ -1,3 +1,4 @@
+#CPU ?= x86_64
 CPU ?= i386
 
 CC    = $(CPU)-aros-gcc
@@ -44,7 +45,7 @@ obj/$(CPU)/%.o: src/%.c
 
 .PHONY: build-libsmb2
 build-libsmb2:
-	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros bin/libsmb2.a.$(CPU) $(MKFLAGS)
+	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros CPU=$(CPU) bin/libsmb2.a.$(CPU) $(MKFLAGS)
 
 $(LIBSMB2DIR)/bin/libsmb2.a.$(CPU): build-libsmb2
 	@true
