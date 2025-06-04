@@ -1,7 +1,7 @@
 /*
  * smb2-handler - SMB2 file system client
  *
- * Copyright (C) 2022-2023 Fredrik Wikstrom <fredrik@a500.org>
+ * Copyright (C) 2022-2025 Fredrik Wikstrom <fredrik@a500.org>
  * Copyright (C) 2024 Walter Licht https://github.com/sirwalt
  *
  * This program is free software; you can redistribute it and/or modify
