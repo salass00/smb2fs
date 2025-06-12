@@ -25,7 +25,8 @@ Startup   = "<args>"
 
 Where <args> should follow the template:
 
-URL/A,USER,PASSWORD,VOLUME,READONLY/S,NOPASSWORDREQ/S
+URL/A,USER,PASSWORD,VOLUME,DOMAIN/K,READONLY/S,NOPASSWORDREQ/S,NOHANDLESRCV/S,
+RECONNECTREQ/S
 
 URL is the address of the samba share in the format:
 smb://[<domain;][<username>[:<password>]@]<host>[:<port>]/<share>/<path>
@@ -36,10 +37,26 @@ any) specified in the URL argument.
 VOLUME is the AmigaDOS volume name (if not specified it defaults to
 <server>-<share>).
 
+DOMAIN can be used to set the domain name (setting this via the URL argument
+does not work ATM as c:mount treats anything after a semi-colon as a comment,
+even if it's between double-quotes).
+
 READONLY sets the filesystem to read only mode.
 
 NOPASSWORDREQ stops a password requester from being opened if no password is
 specified.
+
+NOHANDLESRCV/S disables the automatic recovery of filehandles after a
+connection fault is resolved. This should not be needed, but the SMB server
+might still cause lock issue, reported by "..busy" "..in use" errors on
+workbench. This can't be solved within this handler, unless libsmb2 supports
+durable handles.
+
+RECONNECTREQ/S requests the user if a reconnection should be attempted. This
+is part of an initial implementation of connection fault handling and might
+not be needed, as the final implementation relies on OS "No disk - retry"
+mechanism. Still, if you have issues, you might try this option. Depending on
+user feedback this option will be removed in future releases.
 
 To connect to the share myshare on server mypc using username "myuser" and
 password "password123" use:
@@ -72,3 +89,4 @@ To unmount the share, set the DOSDEV tooltype in KillDev's icon to the name
 of the DOSDriver file, then start KillDev from Workbench. This can also be
 used if the volume couldn't be mounted, and you get a "device already mounted"
 message.
+

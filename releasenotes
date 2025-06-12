@@ -94,3 +94,5 @@ smb2-handler 53.9 (d.m.2025)
 
 - AmigaOS 3: Added a version compiled for the 68060 CPU.
 
+- Added support for the DOMAIN argument.
+

@@ -56,6 +56,7 @@ static const char cmd_template[] =
 	"USER,"
 	"PASSWORD,"
 	"VOLUME,"
+	"DOMAIN/K,"
 	"READONLY/S,"
 	"NOPASSWORDREQ/S,"
 	"NOHANDLESRCV/S,"
@@ -66,6 +67,7 @@ enum {
 	ARG_USER,
 	ARG_PASSWORD,
 	ARG_VOLUME,
+	ARG_DOMAIN,
 	ARG_READONLY,
 	ARG_NOPASSWORDREQ,
 	ARG_NO_HANDLES_RCV,
@@ -106,6 +108,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	struct smb2_url          *url;
 	const char               *username;
 	const char               *password;
+	const char               *domain;
 
 	md = fuse_get_context()->private_data;
 
@@ -154,6 +157,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	username = url->user;
 	password = url->password;
+	domain   = url->domain;
 
 	if (md->args[ARG_USER])
 	{
@@ -162,6 +166,10 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	if (md->args[ARG_PASSWORD])
 	{
 		password = (const char *)md->args[ARG_PASSWORD];
+	}
+	if (md->args[ARG_DOMAIN])
+	{
+		domain = (const char *)md->args[ARG_DOMAIN];
 	}
 
 	if (password == NULL && !md->args[ARG_NOPASSWORDREQ])
@@ -181,9 +189,9 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	}
 
 	smb2_set_security_mode(fsd->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
-	if (url->domain != NULL)
+	if (domain != NULL)
 	{
-		smb2_set_domain(fsd->smb2, url->domain);
+		smb2_set_domain(fsd->smb2, domain);
 	}
 
 	if (smb2_connect_share(fsd->smb2, url->server, url->share, username, password) < 0)
