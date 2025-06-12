@@ -20,7 +20,7 @@ LIBS    = -ldebug
 STRIPFLAGS = -R.comment
 
 SRCS = start_os3.c main.c error-req.c time.c strlcpy.c strdup.c malloc.c \
-       getpid.c marshalling.c reqtools/password-req.c reqtools/reconnect-req.c
+       getpid.c marshalling.c reqtools/password-req.c reconnect-req.c
 
 ARCH_000 = -mcpu=68000 -mtune=68000
 OBJS_000 = $(addprefix obj/68000/,$(SRCS:.c=.o))
