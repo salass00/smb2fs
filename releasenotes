@@ -84,10 +84,10 @@ smb2-handler 53.8 (15.5.2024)
 
 - implemented automatic reconnection handling
 
-- experimental recovery of handles during file operations
-  interrupted by connection fault. Please note: the SMB server might still cause lock issue,
-  reported by "..busy" "..in use" errors on workbench. This can't be solved within this handler,
-  unless libsmb2 supports durable handles.
+- experimental recovery of handles during file operations interrupted by
+  connection fault. Please note: the SMB server might still cause lock issue,
+  reported by "..busy" "..in use" errors on workbench. This can't be solved
+  within this handler, unless libsmb2 supports durable handles.
 
 
 smb2-handler 53.9 (12.6.2025)
