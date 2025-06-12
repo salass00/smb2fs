@@ -25,10 +25,8 @@
 #include "smb2fs.h"
 #include "smb2-handler_rev.h"
 
-#include <proto/exec.h>
-#include <proto/intuition.h>
-
 #ifndef __amigaos4__
+#include <proto/intuition.h>
 #include <clib/debug_protos.h>
 #endif
 
