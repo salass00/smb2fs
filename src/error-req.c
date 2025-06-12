@@ -38,9 +38,7 @@
 
 void request_error(const char *error_string, ...)
 {
-#ifdef __amigaos4__
-	struct IntuitionIFace *IIntuition;
-#else
+#ifndef __amigaos4__
 	struct IntuitionBase *IntuitionBase;
 #endif
 	va_list args;
@@ -52,13 +50,17 @@ void request_error(const char *error_string, ...)
 
 #ifdef __amigaos4__
 	DebugPrintF("[smb2fs] %s\n", errstr);
-	IIntuition = (struct IntuitionIFace *)open_interface("intuition.library", 53);
-	if (IIntuition != NULL)
+	TimedDosRequesterTags(
+		TDR_NonBlocking,  TRUE,
+		TDR_Timeout,      30,
+		TDR_TitleString,  VERS,
+		TDR_FormatString, errstr,
+		TDR_GadgetString, "OK",
+		TAG_END);
 #else
 	KPrintF((STRPTR)"[smb2fs] %s\n", errstr);
 	IntuitionBase = (struct IntuitionBase *)OpenLibrary((STRPTR)"intuition.library", 39);
 	if (IntuitionBase != NULL)
-#endif
 	{
 		struct EasyStruct es;
 		es.es_StructSize = sizeof(es);
@@ -68,11 +70,8 @@ void request_error(const char *error_string, ...)
 		es.es_GadgetFormat = (STRPTR)"OK";
 		EasyRequestArgs(NULL, &es, NULL, NULL);
 
-#ifdef __amigaos4__
-		close_interface((struct Interface *)IIntuition);
-#else
 		CloseLibrary((struct Library *)IntuitionBase);
-#endif
 	}
+#endif
 }
 
