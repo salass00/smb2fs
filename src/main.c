@@ -639,7 +639,7 @@ static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
 	// KPrintF((STRPTR)"[smb2fs] smb2fs_opendir started.\n");
 	struct smb2dir *smb2dir;
 	char            pathbuf[MAXPATHLEN];
-	int 			r2;
+	int             r2;
 
 	if (fsd == NULL)
 	{
@@ -662,7 +662,7 @@ static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
 	if (path[0] == '/') path++; /* Remove initial slash */
 
 	do {
-		smb2dir = smb2_opendir(fsd->smb2, path, &r2);
+		smb2dir = smb2_opendir_r2(fsd->smb2, path, &r2);
 		if (smb2dir == NULL)
 		{
 			if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
@@ -764,7 +764,7 @@ static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 	struct smb2fh *smb2fh;
 	int            flags;
 	char           pathbuf[MAXPATHLEN];
-	int				r2;
+	int            r2;
 
 	if (fsd == NULL)
 	{
@@ -792,7 +792,7 @@ static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 	{
 		do 
 		{
-			smb2fh = smb2_open(fsd->smb2, path, flags, &r2);
+			smb2fh = smb2_open_r2(fsd->smb2, path, flags, &r2);
 			if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
 			{
 				if(!handle_connection_fault())
@@ -831,7 +831,7 @@ static int smb2fs_create(const char *path, mode_t mode, struct fuse_file_info *f
 	struct smb2fh *smb2fh;
 	int            flags;
 	char           pathbuf[MAXPATHLEN];
-	int 			r2;
+	int            r2;
 
 	if (fsd == NULL)
 	{
@@ -860,7 +860,7 @@ static int smb2fs_create(const char *path, mode_t mode, struct fuse_file_info *f
 
 	do 
 	{
-		smb2fh = smb2_open(fsd->smb2, path, flags, &r2);
+		smb2fh = smb2_open_r2(fsd->smb2, path, flags, &r2);
 		if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
 		{
 			if(!handle_connection_fault())
@@ -1250,7 +1250,7 @@ static int smb2fs_rmdir(const char *path)
 	struct smb2dir *smb2dir;
 	int  rc;
 	char pathbuf[MAXPATHLEN];
-	int r2;
+	int  r2;
 	struct smb2dirent *ent;
 	BOOL notempty = FALSE;
 
@@ -1280,7 +1280,7 @@ static int smb2fs_rmdir(const char *path)
 
 	/* Make sure to return correct error for non-empty directory */
 	do {
-		smb2dir = smb2_opendir(fsd->smb2, path, &r2);
+		smb2dir = smb2_opendir_r2(fsd->smb2, path, &r2);
 		if (smb2dir == NULL)
 		{
 			if(r2 == -1 || r2 == SMB2_STATUS_CANCELLED)
