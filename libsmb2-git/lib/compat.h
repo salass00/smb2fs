@@ -335,6 +335,9 @@ int getlogin_r(char *buf, size_t size);
 #define close CloseSocket
 #undef getaddrinfo
 #undef freeaddrinfo
+#ifndef __AROS__
+#define select(nfds, readfds, writefds, exceptfds, timeout) WaitSelect(nfds, readfds, writefds, exceptfds, timeout, NULL)
+#endif
 #endif
 #define strncpy(a,b,c) strcpy(a,b)
 

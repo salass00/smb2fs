@@ -75,9 +75,6 @@ int gethostname(char *name, size_t len)
 #include <proto/bsdsocket.h>
 #define read(fd, buf, count) recv(fd, buf, count, 0)
 #define write(fd, buf, count) send(fd, buf, count, 0)
-#ifndef __AROS__
-#define select(nfds, readfds, writefds, exceptfds, timeout) WaitSelect(nfds, readfds, writefds, exceptfds, timeout, NULL)
-#endif
 #ifdef libnix
 StdFileDes *_lx_fhfromfd(int d) { return NULL; }
 struct MinList __filelist = { (struct MinNode *) &__filelist.mlh_Tail, NULL, (struct MinNode *) &__filelist.mlh_Head };
