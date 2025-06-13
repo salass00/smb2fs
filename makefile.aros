@@ -43,6 +43,8 @@ obj/$(CPU)/%.o: src/%.c
 	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(CFLAGS) $<
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+obj/$(CPU)/malloc.o: CFLAGS += -fno-builtin
+
 .PHONY: build-libsmb2
 build-libsmb2:
 	$(MAKE) -C $(LIBSMB2DIR) -f makefile.aros CPU=$(CPU) bin/libsmb2.a.$(CPU) $(MKFLAGS)

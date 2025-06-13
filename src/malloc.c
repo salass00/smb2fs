@@ -17,7 +17,7 @@ void cleanup_malloc(void) {
 	DeletePool(mempool);
 }
 
-void *int_malloc(size_t size) {
+void *malloc(size_t size) {
 	size_t *pmem = AllocPooled(mempool, size + sizeof(size_t) + ALLOC_EXTRA_BYTES);
 	if (pmem != NULL) {
 		*pmem++ = size;
@@ -25,13 +25,6 @@ void *int_malloc(size_t size) {
 		errno = ENOMEM;
 	return pmem;
 }
-
-// workaround needed for AROS, if int_malloc is called malloc, calloc miscompiles for some reason
-// using this proxy function solves miscompilation
-void *malloc(size_t size) {
-	return int_malloc(size);
-}
-
 
 void free(void *ptr) {
 	if (ptr != NULL) {
