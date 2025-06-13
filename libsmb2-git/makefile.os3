@@ -30,26 +30,36 @@ SRCS = aes.c aes_reference.c aes128ccm.c alloc.c asn1-ber.c dcerpc.c \
 
 ARCH_000 = -mcpu=68000 -mtune=68000
 OBJS_000 = $(addprefix obj/68000/,$(SRCS:.c=.o))
+DEPS_000 = $(OBJS_000:.o=.d)
 
 ARCH_020 = -mcpu=68020 -mtune=68020-60
 OBJS_020 = $(addprefix obj/68020/,$(SRCS:.c=.o))
+DEPS_020 = $(OBJS_020:.o=.d)
 
 ARCH_060 = -mcpu=68060 -mtune=68060
 OBJS_060 = $(addprefix obj/68060/,$(SRCS:.c=.o))
+DEPS_060 = $(OBJS_060:.o=.d)
 
 .PHONY: all
 all: bin/libsmb2.a.000 bin/libsmb2.a.020 bin/libsmb2.a.060
 
+-include $(DEPS_000)
+-include $(DEPS_020)
+-include $(DEPS_060)
+
 obj/68000/%.o: lib/%.c
 	@mkdir -p $(dir $@)
+	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(ARCH_000) $(CFLAGS) $<
 	$(CC) $(ARCH_000) $(CFLAGS) -c -o $@ $<
 
 obj/68020/%.o: lib/%.c
 	@mkdir -p $(dir $@)
+	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(ARCH_020) $(CFLAGS) $<
 	$(CC) $(ARCH_020) $(CFLAGS) -c -o $@ $<
 
 obj/68060/%.o: lib/%.c
 	@mkdir -p $(dir $@)
+	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(ARCH_060) $(CFLAGS) $<
 	$(CC) $(ARCH_060) $(CFLAGS) -c -o $@ $<
 
 bin/libsmb2.a.000: $(OBJS_000)

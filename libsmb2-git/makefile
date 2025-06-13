@@ -29,12 +29,16 @@ SRCS = aes.c aes_reference.c aes128ccm.c alloc.c asn1-ber.c dcerpc.c \
        unicode.c usha.c compat.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
+DEPS = $(OBJS:.o=.d)
 
 .PHONY: all
 all: bin/libsmb2.a
 
+-include $(DEPS)
+
 obj/%.o: lib/%.c
 	@mkdir -p $(dir $@)
+	$(CC) -MM -MP -MT $(@:.o=.d) -MT $@ -MF $(@:.o=.d) $(CFLAGS) $<
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 bin/libsmb2.a: $(OBJS)
