@@ -3495,7 +3495,7 @@ smb2_general_client_request_cb(struct smb2_context *smb2, int status, void *comm
 
         switch (smb2->pdu->header.command) {
         case SMB2_SESSION_SETUP:
-                printf("New session IN session\n");
+                //printf("New session IN session\n");
                 smb2_session_setup_request_cb(smb2, status, command_data, cb_data);
                 /* session setup cb allocs next_pdu itself */
                 next_cb = NULL;
