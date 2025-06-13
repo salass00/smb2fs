@@ -107,7 +107,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	// KPrintF((STRPTR)"[smb2fs] smb2fs_init started.\n");
 	struct smb2_url          *url;
 	const char               *username;
-	const char               *password;
+	char                     *password;
 	const char               *domain;
 
 	md = fuse_get_context()->private_data;
@@ -156,7 +156,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	strlcpy(last_server, url->server, sizeof(last_server));
 
 	username = url->user;
-	password = url->password;
+	password = NULL;
 	domain   = url->domain;
 
 	if (md->args[ARG_USER])
@@ -165,7 +165,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	}
 	if (md->args[ARG_PASSWORD])
 	{
-		password = (const char *)md->args[ARG_PASSWORD];
+		password = (char *)md->args[ARG_PASSWORD];
 	}
 	if (md->args[ARG_DOMAIN])
 	{
@@ -174,7 +174,7 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 
 	if (password == NULL && !md->args[ARG_NOPASSWORDREQ])
 	{
-		url->password = password = request_password(url->user, url->server);
+		password = request_password(url->user, url->server);
 		if (password == NULL)
 		{
 			request_error("No password was specified for the share");
@@ -183,18 +183,24 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		}
 	}
 
-	if (password == NULL)
-	{
-		password = "";
-	}
-
 	smb2_set_security_mode(fsd->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
 	if (domain != NULL)
 	{
 		smb2_set_domain(fsd->smb2, domain);
 	}
 
-	if (smb2_connect_share(fsd->smb2, url->server, url->share, username, password) < 0)
+	if (password != NULL)
+	{
+		smb2_set_password(fsd->smb2, password);
+		bzero(password, strlen(password));
+		free(password);
+	}
+	else
+	{
+		smb2_set_password(fsd->smb2, "");
+	}
+
+	if (smb2_connect_share(fsd->smb2, url->server, url->share, username) < 0)
 	{
 		request_error("smb2_connect_share failed.\n%s", smb2_get_error(fsd->smb2));
 		smb2_destroy_url(url);
