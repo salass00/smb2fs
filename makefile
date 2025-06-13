@@ -18,8 +18,8 @@ LIBS    =
 
 STRIPFLAGS = -R.comment --strip-unneeded-rel-relocs
 
-SRCS = start.c main.c error-req.c time.c bsdsocket-stubs.c marshalling.c \
-       reaction/password-req.c reconnect-req.c
+SRCS = start.c main.c marshalling.c bsdsocket-stubs.c random.c time.c \
+       reaction/password-req.c error-req.c reconnect-req.c
 
 OBJS = $(addprefix obj/,$(SRCS:.c=.o))
 DEPS = $(OBJS:.o=.d)
