@@ -32,11 +32,18 @@
 extern "C" {
 #endif
 
+#include <krb5/krb5.h>
+
+#if __APPLE__
+#import <GSS/GSS.h>
+#else
 #include <gssapi/gssapi.h>
+#include <gssapi/gssapi_ext.h>
 
 static const gss_OID_desc gss_mech_spnego = {
     6, "\x2b\x06\x01\x05\x05\x02"
 };
+#endif
 
 static const gss_OID_desc spnego_mech_krb5 = {
     9, "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02"
@@ -54,7 +61,14 @@ struct private_auth_data {
         gss_const_OID mech_type;
         uint32_t req_flags;
         gss_buffer_desc output_token;
+        int get_proxy_cred;
+        int use_spnego;
         char *g_server;
+        krb5_context krb5_cctx;
+        krb5_ccache krb5_Ccache;
+        krb5_principal principal;
+        krb5_keytab keytab;
+        krb5_creds server_cred;
 };
 
 void
@@ -74,6 +88,9 @@ krb5_negotiate_reply(struct smb2_context *smb2,
                      const char *password);
 
 int
+krb5_negotiate_request(struct smb2_context *smb2, void **neg_init_token);
+
+int
 krb5_session_get_session_key(struct smb2_context *smb2,
                              struct private_auth_data *auth_data);
 
@@ -82,9 +99,31 @@ krb5_session_request(struct smb2_context *smb2,
                      struct private_auth_data *auth_data,
                      unsigned char *buf, int len);
 
+struct private_auth_data *
+krb5_init_server_client_cred(struct smb2_server *server,
+               struct smb2_context *smb2, const char *password);
+
+int
+krb5_session_reply(struct smb2_context *smb2,
+                     struct private_auth_data *auth_data,
+                     unsigned char *buf, int len,
+                     int *more_processing_needed);
+
 void
 krb5_set_gss_error(struct smb2_context *smb2, char *func,
                    uint32_t maj, uint32_t min);
+
+int
+krb5_can_do_ntlmssp(void);
+
+int
+krb5_init_server_credentials(struct smb2_server *server, const char *keytab_path);
+
+int
+krb5_renew_server_credentials(struct smb2_server *server);
+
+void
+krb5_free_server_credentials(struct smb2_server *server);
 
 #ifdef __cplusplus
 }

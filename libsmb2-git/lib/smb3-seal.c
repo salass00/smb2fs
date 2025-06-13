@@ -19,24 +19,6 @@
 #include "config.h"
 #endif
 
-#ifdef ESP_PLATFORM
-#include <esp_system.h>
-#include <sys/types.h>
-#include <esp_idf_version.h>
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-#include <esp_random.h>
-#endif
-#define random esp_random
-#endif
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -57,9 +39,17 @@
 #include <sys/uio.h>
 #endif
 
-#ifdef _MSC_VER
-#define random rand
-#endif // _MSC_VER
+#ifdef HAVE_SYS__IOVEC_H
+#include <sys/_iovec.h>
+#endif
+
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
 
 #include <stdio.h>
 
@@ -96,7 +86,7 @@ smb3_encrypt_pdu(struct smb2_context *smb2,
         spl = 52;  /* transform header */
         for (tmp_pdu = pdu; tmp_pdu; tmp_pdu = tmp_pdu->next_compound) {
                 for (i = 0; i < tmp_pdu->out.niov; i++) {
-                        spl += tmp_pdu->out.iov[i].len;
+                        spl += (uint32_t)tmp_pdu->out.iov[i].len;
                 }
         }
         pdu->crypt = calloc(spl, sizeof(uint8_t));
@@ -120,7 +110,7 @@ smb3_encrypt_pdu(struct smb2_context *smb2,
                 for (i = 0; i < tmp_pdu->out.niov; i++) {
                         memcpy(&pdu->crypt[spl], tmp_pdu->out.iov[i].buf,
                                tmp_pdu->out.iov[i].len);
-                        spl += tmp_pdu->out.iov[i].len;
+                        spl += (uint32_t)tmp_pdu->out.iov[i].len;
                 }
         }
 
@@ -156,7 +146,7 @@ smb3_decrypt_pdu(struct smb2_context *smb2)
                 smb2->in.iov[smb2->in.niov - 1].free = NULL;
                 smb2_free_iovector(smb2, &smb2->in);
 
-                smb2->spl = smb2->enc_len;
+                smb2->spl = (uint32_t)smb2->enc_len;
                 smb2->recv_state = SMB2_RECV_HEADER;
                 smb2_add_iovector(smb2, &smb2->in, &smb2->header[0],
                                   SMB2_HEADER_SIZE, NULL);

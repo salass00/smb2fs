@@ -128,7 +128,7 @@ SHA224Reset (SHA224Context * context)
  */
 int
 SHA224Input (SHA224Context * context, const uint8_t * message_array,
-	     unsigned int length)
+	     size_t length)
 {
   return SHA256Input (context, message_array, length);
 }
@@ -154,7 +154,7 @@ SHA224Input (SHA224Context * context, const uint8_t * message_array,
  */
 int
 SHA224FinalBits (SHA224Context * context,
-		 const uint8_t message_bits, unsigned int length)
+		 const uint8_t message_bits, size_t length)
 {
   return SHA256FinalBits (context, message_bits, length);
 }
@@ -226,9 +226,9 @@ SHA256Reset (SHA256Context * context)
  */
 int
 SHA256Input (SHA256Context * context, const uint8_t * message_array,
-	     unsigned int length)
+	     size_t length)
 {
-  static uint32_t addTemp;
+  uint32_t addTemp;
 
   if (!length)
     return shaSuccess;
@@ -282,9 +282,9 @@ SHA256Input (SHA256Context * context, const uint8_t * message_array,
  */
 int
 SHA256FinalBits (SHA256Context * context,
-		 const uint8_t message_bits, unsigned int length)
+		 const uint8_t message_bits, size_t length)
 {
-  static uint32_t addTemp;
+  uint32_t addTemp;
   uint8_t masks[8] = {
     /* 0 0b00000000 */ 0x00, /* 1 0b10000000 */ 0x80,
     /* 2 0b11000000 */ 0xC0, /* 3 0b11100000 */ 0xE0,
@@ -313,7 +313,7 @@ SHA256FinalBits (SHA256Context * context,
   if (context->Corrupted)
     return context->Corrupted;
 
-  SHA224_256AddLength (context, length);
+  SHA224_256AddLength (context, (uint32_t)length);
   SHA224_256Finalize (context, (uint8_t)
 		      ((message_bits & masks[length]) | markbit[length]));
 

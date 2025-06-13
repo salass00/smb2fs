@@ -6,8 +6,8 @@ STRIP  = ppc-amigaos-strip
 OPTIMIZE = -O2
 DEBUG    = -gstabs
 WARNINGS = -Wall -Werror -Wwrite-strings
-INCLUDES = -I. -I./include -I./include/smb2
-DEFINES  = -DHAVE_CONFIG_H "-D_U_=__attribute__((unused))"
+INCLUDES = -I. -I./include -I./include/smb2 -I./include/amigaos4
+DEFINES  = -DHAVE_CONFIG_H "-D_U_=__attribute__((unused))" -DHAVE_ADDRINFO -DNEED_POLL -DNEED_GETADDRINFO -DNEED_FREEADDRINFO -DNEED_GETLOGIN_R
 
 CFLAGS  = $(OPTIMIZE) $(DEBUG) $(WARNINGS) $(INCLUDES) $(DEFINES)
 

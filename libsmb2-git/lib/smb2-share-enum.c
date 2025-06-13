@@ -51,6 +51,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 
@@ -67,14 +71,14 @@ struct smb2nse {
         smb2_command_cb cb;
         void *cb_data;
         union {
-                struct srvsvc_netshareenumall_req se_req;
+                struct srvsvc_NetrShareEnum_req se_req;
         };
 };
 
 static void
 nse_free(struct smb2nse *nse)
 {
-        free(discard_const(nse->se_req.server));
+        free(discard_const(nse->se_req.ServerName.utf8));
         free(nse);
 }
 
@@ -116,7 +120,7 @@ share_enum_bind_cb(struct dcerpc_context *dce, int status,
                                    SRVSVC_NETRSHAREENUM,
                                    srvsvc_NetrShareEnum_req_coder, &nse->se_req,
                                    srvsvc_NetrShareEnum_rep_coder,
-                                   sizeof(struct srvsvc_netshareenumall_rep),
+                                   sizeof(struct srvsvc_NetrShareEnum_rep),
                                    srvsvc_ioctl_cb, nse);
         if (status) {
                 nse->cb(smb2, status, NULL, nse->cb_data);
@@ -128,6 +132,7 @@ share_enum_bind_cb(struct dcerpc_context *dce, int status,
 
 int
 smb2_share_enum_async(struct smb2_context *smb2,
+                      enum SHARE_INFO_enum  level,
                       smb2_command_cb cb, void *cb_data)
 {
         struct dcerpc_context *dce;
@@ -158,12 +163,24 @@ smb2_share_enum_async(struct smb2_context *smb2,
         }
         
         sprintf(server, "\\\\%s", smb2->server);
-        nse->se_req.server = server;
+        nse->se_req.ServerName.utf8 = server;
 
-        nse->se_req.level = 1;
-        nse->se_req.ctr = NULL;
-        nse->se_req.max_buffer = 0xffffffff;
-        nse->se_req.resume_handle = 0;
+        switch (level) {
+        case SHARE_INFO_0:
+                nse->se_req.ses.Level = level;
+                nse->se_req.ses.ShareInfo.Level = level;
+                nse->se_req.ses.ShareInfo.Level0.EntriesRead = 0;
+                nse->se_req.ses.ShareInfo.Level0.Buffer = NULL;
+                break;
+        case SHARE_INFO_1:
+                nse->se_req.ses.Level = level;
+                nse->se_req.ses.ShareInfo.Level = level;
+                nse->se_req.ses.ShareInfo.Level1.EntriesRead = 0;
+                nse->se_req.ses.ShareInfo.Level1.Buffer = NULL;
+                break;
+        }
+        nse->se_req.PreferedMaximumLength = 0xffffffff;
+        nse->se_req.ResumeHandle = 0;
 
         rc = dcerpc_connect_context_async(dce, "srvsvc", &srvsvc_interface,
                                           share_enum_bind_cb, nse);

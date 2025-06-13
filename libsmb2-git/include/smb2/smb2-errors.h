@@ -34,7 +34,7 @@
 
 /* Error codes */
 #define SMB2_STATUS_SUCCESS                            0x00000000
-#define SMB2_STATUS_ABORTED                            0xffffffff
+#define SMB2_STATUS_SHUTDOWN                           0xffffffff
 #define SMB2_STATUS_PENDING                            0x00000103
 #define SMB2_STATUS_SMB_BAD_FID                        0x00060001
 #define SMB2_STATUS_NO_MORE_FILES                      0x80000006
@@ -541,6 +541,9 @@
 #define SMB2_STATUS_FILE_IS_OFFLINE                    0xC0000267
 #define SMB2_STATUS_VOLUME_DISMOUNTED                  0xC000026E
 #define SMB2_STATUS_NOT_A_REPARSE_POINT                0xC0000275
+#define SMB2_STATUS_SERVER_UNAVAILABLE                 0xC0000466
 
 /* Warning codes */
-#define SMB2_STATUS_STOPPED_ON_SYMLINK  0x8000002d
+#define SMB2_STATUS_BUFFER_OVERFLOW                    0x80000005
+#define SMB2_STATUS_STOPPED_ON_SYMLINK                 0x8000002D
+

@@ -25,10 +25,6 @@
 #define _GNU_SOURCE
 #endif
 
-#ifdef _WINDOWS
-#define HAVE_SYS_SOCKET_H 1
-#endif
-
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -45,15 +41,31 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
 #include <stdarg.h>
 #include <stdio.h>
 
-#if !defined(PS2_IOP_PLATFORM)
+#ifdef HAVE_TIME_H
 #include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
+
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
+#ifdef HAVE_SYS_ERRNO_H
+#include <sys/errno.h>
 #endif
 
 #include "compat.h"
@@ -61,47 +73,15 @@
 #include "smb2.h"
 #include "libsmb2.h"
 #include "libsmb2-private.h"
+#include "slist.h"
 
 #define MAX_URL_SIZE 1024
 
-#include "compat.h"
-
-#ifdef _MSC_VER
-#include <errno.h>
-#define getlogin_r(a,b) ENXIO
-#define srandom srand
-#define random rand
-#define getpid GetCurrentProcessId
-#endif // _MSC_VER
-
-#ifdef ESP_PLATFORM
-#include <errno.h>
-#include <esp_system.h>
-#define random esp_random
-#define srandom(seed)
-#define getlogin_r(a,b) ENXIO
-#endif
-
-#ifdef __ANDROID__
-#include <errno.h>
-// getlogin_r() was added in API 28
-#if __ANDROID_API__ < 28
-#define getlogin_r(a,b) ENXIO
-#endif
-#endif // __ANDROID__
-
-#if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
-#include <errno.h>
-#define getlogin_r(a,b) ENXIO
-#ifndef __AROS__
-#define srandom srand
-#define random rand
-#endif
-#ifndef __amigaos4__
-#include <proto/bsdsocket.h>
-#define close CloseSocket
-#endif
-#endif // __amigaos4__
+/* This is a list of all allocated contexts so servers can iterate over each
+ * it should probably be moved to the server context and a callback registered
+ * here to tell the server when a context is destroyed, but this works
+ */
+static struct smb2_context *active_contexts;
 
 static int
 smb2_parse_args(struct smb2_context *smb2, const char *args)
@@ -168,7 +148,7 @@ smb2_parse_args(struct smb2_context *smb2, const char *args)
                                 return -1;
                         }
                 } else if (!strcmp(args, "timeout")) {
-                        smb2->timeout = strtol(value, NULL, 10);
+                        smb2->timeout = (int)strtol(value, NULL, 10);
                 } else {
                         smb2_set_error(smb2, "Unknown argument: %s", args);
                         return -1;
@@ -198,10 +178,10 @@ smb2_parse_args(struct smb2_context *smb2, const char *args)
 struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
 {
         struct smb2_url *u;
-        char *ptr, *tmp, *pwd, str[MAX_URL_SIZE];
+        char *ptr, *tmp, str[MAX_URL_SIZE];
         char *args;
         char *shared_folder;
-        int len_shared_folder;
+        size_t len_shared_folder;
 
         if (strncmp(url, "smb://", 6)) {
                 smb2_set_error(smb2, "URL does not start with 'smb://'");
@@ -211,8 +191,8 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
                 smb2_set_error(smb2, "URL is too long");
                 return NULL;
         }
-        strcpy(str, url + 6);
 
+        strncpy(str, url + 6, MAX_URL_SIZE);
         args = strchr(str, '?');
         if (args) {
                 *(args++) = '\0';
@@ -245,11 +225,6 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
         /* user */
         if ((tmp = strchr(ptr, '@')) != NULL && strlen(tmp) > len_shared_folder) {
                 *(tmp++) = '\0';
-                /* password */
-                if ((pwd = strchr(ptr, ':')) != NULL) {
-                    *(pwd++) = '\0';
-                    u->password = strdup(pwd);
-                }
                 u->user = strdup(ptr);
                 ptr = tmp;
         }
@@ -262,7 +237,7 @@ struct smb2_url *smb2_parse_url(struct smb2_context *smb2, const char *url)
 
         /* Do we just have a share or do we have both a share and an object */
         tmp = strchr(ptr, '/');
-        
+
         /* We only have a share */
         if (tmp == NULL) {
                 u->share = strdup(ptr);
@@ -284,7 +259,6 @@ void smb2_destroy_url(struct smb2_url *url)
         }
         free(discard_const(url->domain));
         free(discard_const(url->user));
-        free(discard_const(url->password));
         free(discard_const(url->server));
         free(discard_const(url->share));
         free(discard_const(url->path));
@@ -299,7 +273,7 @@ struct smb2_context *smb2_init_context(void)
         int i, ret;
         static int ctr;
 
-        srandom(time(NULL) ^ getpid() ^ ctr++);
+        srandom((unsigned)time(NULL) ^ getpid() ^ ctr++);
 
         smb2 = calloc(1, sizeof(struct smb2_context));
         if (smb2 == NULL) {
@@ -308,7 +282,7 @@ struct smb2_context *smb2_init_context(void)
 
         ret = getlogin_r(buf, sizeof(buf));
         smb2_set_user(smb2, ret == 0 ? buf : "Guest");
-        smb2->fd = -1;
+        smb2->fd = SMB2_INVALID_SOCKET;
         smb2->connecting_fds = NULL;
         smb2->connecting_fds_count = 0;
         smb2->addrinfos = NULL;
@@ -328,6 +302,8 @@ struct smb2_context *smb2_init_context(void)
 
         smb2->session_key = NULL;
 
+        SMB2_LIST_ADD(&active_contexts, smb2);
+
         return smb2;
 }
 
@@ -337,12 +313,12 @@ void smb2_destroy_context(struct smb2_context *smb2)
                 return;
         }
 
-        if (smb2->fd != -1) {
+        if (SMB2_VALID_SOCKET(smb2->fd)) {
                 if (smb2->change_fd) {
                         smb2->change_fd(smb2, smb2->fd, SMB2_DEL_FD);
                 }
                 close(smb2->fd);
-                smb2->fd = -1;
+                smb2->fd = SMB2_INVALID_SOCKET;
         }
         else {
                 smb2_close_connecting_fds(smb2);
@@ -352,21 +328,32 @@ void smb2_destroy_context(struct smb2_context *smb2)
                 struct smb2_pdu *pdu = smb2->outqueue;
 
                 smb2->outqueue = pdu->next;
-                pdu->cb(smb2, SMB2_STATUS_CANCELLED, NULL, pdu->cb_data);
+                if (pdu->cb) {
+                        pdu->cb(smb2, SMB2_STATUS_SHUTDOWN, NULL, pdu->cb_data);
+                }
                 smb2_free_pdu(smb2, pdu);
+        }
+        if (smb2->pdu) {
+                struct smb2_pdu *pdu = smb2->pdu;
+
+                if (pdu->cb) {
+                        pdu->cb(smb2, SMB2_STATUS_SHUTDOWN, NULL, pdu->cb_data);
+                }
+                smb2_free_pdu(smb2, smb2->pdu);
         }
         while (smb2->waitqueue) {
                 struct smb2_pdu *pdu = smb2->waitqueue;
 
                 smb2->waitqueue = pdu->next;
-                pdu->cb(smb2, SMB2_STATUS_CANCELLED, NULL, pdu->cb_data);
+                if (pdu->cb) {
+                        pdu->cb(smb2, SMB2_STATUS_SHUTDOWN, NULL, pdu->cb_data);
+                }
+                if (pdu == smb2->pdu) {
+                        smb2->pdu = NULL;
+                }
                 smb2_free_pdu(smb2, pdu);
         }
         smb2_free_iovector(smb2, &smb2->in);
-        if (smb2->pdu) {
-                smb2_free_pdu(smb2, smb2->pdu);
-                smb2->pdu = NULL;
-        }
 
         if (smb2->fhs) {
                 smb2_free_all_fhs(smb2);
@@ -391,11 +378,37 @@ void smb2_destroy_context(struct smb2_context *smb2)
         free(discard_const(smb2->workstation));
         free(smb2->enc);
 
+#ifdef HAVE_LIBKRB5
+        if (smb2->cred_handle) {
+                OM_uint32 min;
+                (void) gss_release_cred(&min, &smb2->cred_handle);
+                smb2->cred_handle = NULL;
+        }
+#endif
         if (smb2->connect_data) {
             free_c_data(smb2, smb2->connect_data);  /* sets smb2->connect_data to NULL */
         }
 
+        SMB2_LIST_REMOVE(&active_contexts, smb2);
         free(smb2);
+}
+
+struct smb2_context *smb2_active_contexts(void)
+{
+        return active_contexts;
+}
+
+int smb2_context_active(struct smb2_context *smb2)
+{
+        struct smb2_context *context = active_contexts;
+
+        while (context) {
+                if (smb2 == context) {
+                        return 1;
+                }
+                context = context->next;
+        }
+        return 0;
 }
 
 void smb2_free_iovector(struct smb2_context *smb2, struct smb2_io_vectors *v)
@@ -414,7 +427,7 @@ void smb2_free_iovector(struct smb2_context *smb2, struct smb2_io_vectors *v)
 
 struct smb2_iovec *smb2_add_iovector(struct smb2_context *smb2,
                                      struct smb2_io_vectors *v,
-                                     uint8_t *buf, int len,
+                                     uint8_t *buf, size_t len,
                                      void (*free)(void *))
 {
         struct smb2_iovec *iov = &v->iov[v->niov];
@@ -428,22 +441,26 @@ struct smb2_iovec *smb2_add_iovector(struct smb2_context *smb2,
         return iov;
 }
 
-#ifndef PS2_IOP_PLATFORM
+#ifndef _IOP
 static void smb2_set_error_string(struct smb2_context *smb2, const char * error_string, va_list args)
 {
         char errstr[MAX_ERROR_SIZE] = {0};
-
+#ifdef _XBOX
+        if (_vsnprintf(errstr, MAX_ERROR_SIZE, error_string, args) < 0) {
+#else
         if (vsnprintf(errstr, MAX_ERROR_SIZE, error_string, args) < 0) {
+#endif
                 strncpy(errstr, "could not format error string!",
                         MAX_ERROR_SIZE);
         }
         strncpy(smb2->error_string, errstr, MAX_ERROR_SIZE);
 }
-#endif /* PS2_IOP_PLATFORM */
+#endif /* _IOP */
+
 
 void smb2_set_error(struct smb2_context *smb2, const char *error_string, ...)
 {
-#ifndef PS2_IOP_PLATFORM
+#ifndef _IOP
         va_list ap;
 
         if (!smb2)
@@ -453,14 +470,23 @@ void smb2_set_error(struct smb2_context *smb2, const char *error_string, ...)
         va_start(ap, error_string);
         smb2_set_error_string(smb2, error_string, ap);
         va_end(ap);
+        if(smb2->error_cb) {
+                smb2->error_cb(smb2, smb2_get_error(smb2));
+        }
 #endif
+}
+
+void smb2_register_error_callback(struct smb2_context *smb2,
+                    smb2_error_cb error_cb)
+{
+        smb2->error_cb = error_cb;
 }
 
 void smb2_set_nterror(struct smb2_context *smb2, int nterror, const char *error_string, ...)
 {
         if (!smb2)
                 return;
-#ifndef PS2_IOP_PLATFORM
+#ifndef _IOP
         {
                 va_list ap;
 
@@ -482,9 +508,19 @@ int smb2_get_nterror(struct smb2_context *smb2)
         return smb2 ? smb2->nterror : 0;
 }
 
+void smb2_set_client_guid(struct smb2_context *smb2, const uint8_t guid[SMB2_GUID_SIZE])
+{
+        memcpy(smb2->client_guid, guid, SMB2_GUID_SIZE);
+}
+
 const char *smb2_get_client_guid(struct smb2_context *smb2)
 {
         return smb2->client_guid;
+}
+
+uint16_t smb2_get_dialect(struct smb2_context *smb2)
+{
+        return smb2->dialect;
 }
 
 void smb2_set_security_mode(struct smb2_context *smb2, uint16_t security_mode)
@@ -492,9 +528,9 @@ void smb2_set_security_mode(struct smb2_context *smb2, uint16_t security_mode)
         smb2->security_mode = security_mode;
 }
 
-#if !defined(PS2_IOP_PLATFORM) && !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
-static void smb2_set_password_from_file(struct smb2_context *smb2)
+void smb2_set_password_from_file(struct smb2_context *smb2)
 {
+#if !defined(_XBOX) && !defined(_IOP) && !defined(__amigaos4__) && !defined(__AMIGA__) && !defined(__AROS__)
         char *name = NULL;
         FILE *fh;
         char buf[256];
@@ -502,7 +538,7 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
         int finished;
 
 #ifdef _MSC_UWP
-// GetEnvironmentVariable is not available for UWP up to 10.0.16299 SDK
+/* GetEnvironmentVariable is not available for UWP up to 10.0.16299 SDK */
 #if defined(NTDDI_WIN10_RS3) && (NTDDI_VERSION >= NTDDI_WIN10_RS3)
         uint32_t name_len = GetEnvironmentVariableA("NTLM_USER_FILE", NULL, 0);
         if (name_len > 0) {
@@ -516,7 +552,10 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
 #else
         name = getenv("NTLM_USER_FILE");
 #endif
-        if (name == NULL) {
+        if (name == NULL || smb2->user == NULL) {
+#ifdef _MSC_UWP
+                free(name);
+#endif
                 return;
         }
         fh = fopen(name, "r");
@@ -555,7 +594,13 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
                         continue;
                 }
                 *user++ = 0;
-                password = strchr(user, ':');
+                if (domain[0] && smb2->domain && strcmp(smb2->domain, domain)) {
+                        continue;
+                }
+                if (domain[0] && smb2->domain == NULL) {
+                        continue;
+                }
+                password = strchr(user, ':');                
                 if (password == NULL) {
                         continue;
                 }
@@ -565,15 +610,13 @@ static void smb2_set_password_from_file(struct smb2_context *smb2)
                         continue;
                 }
                 smb2_set_password(smb2, password);
+                if (smb2->domain) {
+                        break;
+                }
         }
         fclose(fh);
+#endif /* !defined(_XBOX) && !defined(_IOP) &&  ... */
 }
-#else /* !PS2_IOP_PLATFORM */
-static void smb2_set_password_from_file(struct smb2_context *smb2)
-{
-        return;
-}
-#endif /* !PS2_IOP_PLATFORM */
 
 void smb2_set_user(struct smb2_context *smb2, const char *user)
 {
@@ -586,6 +629,22 @@ void smb2_set_user(struct smb2_context *smb2, const char *user)
         }
         smb2->user = strdup(user);
         smb2_set_password_from_file(smb2);
+}
+
+const char *smb2_get_user(struct smb2_context *smb2)
+{
+        if (smb2 && smb2->user) {
+                return smb2->user;
+        }
+        return NULL;
+}
+
+const char *smb2_get_workstation(struct smb2_context *smb2)
+{
+        if (smb2 && smb2->workstation) {
+                return smb2->workstation;
+        }
+        return NULL;
 }
 
 void smb2_set_password(struct smb2_context *smb2, const char *password)
@@ -604,14 +663,31 @@ void smb2_set_domain(struct smb2_context *smb2, const char *domain)
 {
         if (smb2->domain) {
                 free(discard_const(smb2->domain));
+                smb2->domain = NULL;
+        }
+        if (domain == NULL) {
+                return;
         }
         smb2->domain = strdup(domain);
+        smb2_set_password_from_file(smb2);
+}
+
+const char *smb2_get_domain(struct smb2_context *smb2)
+{
+        if (smb2 && smb2->domain) {
+                return smb2->domain;
+        }
+        return NULL;
 }
 
 void smb2_set_workstation(struct smb2_context *smb2, const char *workstation)
 {
         if (smb2->workstation) {
                 free(discard_const(smb2->workstation));
+                smb2->workstation = NULL;
+        }
+        if (workstation == NULL) {
+                return;
         }
         smb2->workstation = strdup(workstation);
 }
@@ -638,7 +714,7 @@ void smb2_set_sign(struct smb2_context *smb2, int val)
 
 void smb2_set_authentication(struct smb2_context *smb2, int val)
 {
-        smb2->sec = val;
+        smb2->sec = (enum smb2_sec)val;
 }
 
 void smb2_set_timeout(struct smb2_context *smb2, int seconds)
@@ -651,4 +727,47 @@ void smb2_set_version(struct smb2_context *smb2,
 {
         smb2->version = version;
 }
+
+void smb2_get_libsmb2Version(struct smb2_libversion *smb2_ver)
+{
+        smb2_ver->major_version = LIBSMB2_MAJOR_VERSION;
+        smb2_ver->minor_version = LIBSMB2_MINOR_VERSION;
+        smb2_ver->patch_version = LIBSMB2_MAJOR_VERSION;
+}
+
+void smb2_set_passthrough(struct smb2_context *smb2,
+                      int passthrough)
+{
+        smb2->passthrough = passthrough;
+}
+
+void smb2_get_passthrough(struct smb2_context *smb2,
+                      int *passthrough)
+{
+        *passthrough = smb2->passthrough;
+}
+
+void smb2_set_oplock_or_lease_break_callback(struct smb2_context *smb2,
+                    smb2_oplock_or_lease_break_cb cb)
+{
+        smb2->oplock_or_lease_break_cb = cb;
+}
+
+#ifdef HAVE_LIBKRB5
+int smb2_delegate_credentials(struct smb2_context *in, struct smb2_context *out)
+{
+        if (in && out && in->cred_handle) {
+                out->cred_handle = in->cred_handle;
+                in->cred_handle = NULL;
+                return 0;
+        } else {
+                return -1;
+        }
+}
+#else
+int smb2_delegate_credentials(struct smb2_context *in, struct smb2_context *out)
+{
+        return -1;
+}
+#endif
 

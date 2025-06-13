@@ -47,6 +47,19 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
+
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+
+
 #include "compat.h"
 
 #include <smb2.h>
@@ -55,11 +68,13 @@
 
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
+        (type *)(void *)( (char *)__mptr - offsetof(type,member) );})
 
 struct smb2_alloc_entry {
         struct smb2_alloc_entry *next;
+#if 0 /* UNUSED. */
         size_t len;
+#endif
         char buf[0];
 };
 
@@ -98,13 +113,13 @@ smb2_alloc_data(struct smb2_context *smb2, void *memctx, size_t size)
         }
 
 #ifndef _MSC_VER
-        hdr = container_of(memctx, struct smb2_alloc_header, buf);
+        hdr = (struct smb2_alloc_header *)(void *)container_of(memctx, struct smb2_alloc_header, buf);
 #else
         {
           const char* __mptr = memctx;
           hdr = (struct smb2_alloc_header*)((char *)__mptr - offsetof(struct smb2_alloc_header, buf));
         }
-#endif // !_MSC_VER
+#endif /* !_MSC_VER */
 
         ptr->next = hdr->mem;
         hdr->mem = ptr;
@@ -123,13 +138,13 @@ smb2_free_data(struct smb2_context *smb2, void *ptr)
         }
 
 #ifndef _MSC_VER
-        hdr = container_of(ptr, struct smb2_alloc_header, buf);
+        hdr = (struct smb2_alloc_header *)(void *)container_of(ptr, struct smb2_alloc_header, buf);
 #else
         {
           const char* __mptr = ptr;
           hdr = (struct smb2_alloc_header*)((char *)__mptr - offsetof(struct smb2_alloc_header, buf));
         }
-#endif // !_MSC_VER
+#endif /* !_MSC_VER */
 
         while ((ent = hdr->mem)) {
                 hdr->mem = ent->next;

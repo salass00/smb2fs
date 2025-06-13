@@ -21,15 +21,22 @@
 
 #include <smb2/smb2-errors.h>
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct smb2_timeval {
-        uint32_t tv_sec;
-        uint32_t tv_usec;
+        time_t tv_sec;
+        long tv_usec;
 };
-
 #define SMB2_ERROR_REPLY_SIZE 9
 
 struct smb2_error_reply {
@@ -49,24 +56,26 @@ struct smb2_error_reply {
 
 enum smb2_command {
         SMB2_NEGOTIATE       = 0,
-        SMB2_SESSION_SETUP,
-        SMB2_LOGOFF,
-        SMB2_TREE_CONNECT,
-        SMB2_TREE_DISCONNECT,
-        SMB2_CREATE,
-        SMB2_CLOSE,
-        SMB2_FLUSH,
-        SMB2_READ,
-        SMB2_WRITE,
-        /* SMB2_LOCK, */
+        SMB2_SESSION_SETUP   = 1,
+        SMB2_LOGOFF          = 2,
+        SMB2_TREE_CONNECT    = 3,
+        SMB2_TREE_DISCONNECT = 4,
+        SMB2_CREATE          = 5,
+        SMB2_CLOSE           = 6,
+        SMB2_FLUSH           = 7,
+        SMB2_READ            = 8,
+        SMB2_WRITE           = 9,
+        SMB2_LOCK            = 10,
         SMB2_IOCTL           = 11,
-        /* SMB2_CANCEL, */
+        SMB2_CANCEL          = 12,
         SMB2_ECHO            = 13,
-        SMB2_QUERY_DIRECTORY,
-        /* SMB2_CHANGE_NOTIFY, */
+        SMB2_QUERY_DIRECTORY = 14,
+        SMB2_CHANGE_NOTIFY   = 15,
         SMB2_QUERY_INFO      = 16,
         SMB2_SET_INFO        = 17,
-        /* SMB2_OPLOCK_BREAK, */
+        SMB2_OPLOCK_BREAK    = 18,
+
+        SMB1_NEGOTIATE       = 114,
 };
 
 /*
@@ -85,6 +94,12 @@ enum smb2_command {
 
 #define SMB2_PREAUTH_INTEGRITY_CAP         0x0001
 #define SMB2_ENCRYPTION_CAP                0x0002
+#define SMB2_COMPRESSION_CAP               0x0003
+#define SMB2_NETNAME_NEGOTIATE_CONTEXT_ID  0x0005
+#define SMB2_TRANSPORT_CAP                 0x0006
+#define SMB2_RDMA_TRANSFORM_CAP            0x0007
+#define SMB2_SIGNING_CAP                   0x0008
+#define SMB2_CONTEXTTYPE_RESERVED          0x0100
 
 #define SMB2_HASH_SHA_512                  0x0001
 #define SMB2_PREAUTH_HASH_SIZE             64
@@ -169,6 +184,7 @@ struct smb2_session_setup_reply {
 
 struct smb2_tree_connect_request {
         uint16_t flags;
+        uint16_t path_offset;
         uint16_t path_length;
         uint16_t *path;
 };
@@ -214,6 +230,8 @@ struct smb2_tree_connect_reply {
 #define SMB2_OPLOCK_LEVEL_EXCLUSIVE 0x08
 #define SMB2_OPLOCK_LEVEL_BATCH     0x09
 #define SMB2_OPLOCK_LEVEL_LEASE     0xff
+
+#define SMB2_CREATE_REQUEST_LEASE_SIZE  32
 
 #define SMB2_IMPERSONATION_ANONYMOUS      0x00000000
 #define SMB2_IMPERSONATION_IDENTIFICATION 0x00000001
@@ -313,7 +331,10 @@ struct smb2_create_request {
         uint32_t share_access;
         uint32_t create_disposition;
         uint32_t create_options;
+        uint16_t name_offset;
+        uint16_t name_length;
         const char *name;       /* name in UTF8 */
+        uint32_t create_context_offset;
         uint32_t create_context_length;
         uint8_t *create_context;
 };
@@ -322,6 +343,9 @@ struct smb2_create_request {
 
 #define SMB2_FD_SIZE 16
 typedef uint8_t smb2_file_id[SMB2_FD_SIZE];
+
+#define SMB2_LEASE_KEY_SIZE 16
+typedef uint8_t smb2_lease_key[SMB2_LEASE_KEY_SIZE];
 
 struct smb2fh;
 smb2_file_id *smb2_get_file_id(struct smb2fh *fh);
@@ -379,6 +403,18 @@ struct smb2_flush_request {
         smb2_file_id file_id;
 };
 
+#define SMB2_LOGFF_REQUEST_SIZE 4
+
+struct smb2_logoff_request {
+        uint16_t reserved;
+};
+
+#define SMB2_ECHO_REQUEST_SIZE 4
+
+struct smb2_echo_request {
+        uint16_t reserved;
+};
+
 #define SMB2_FLUSH_REPLY_SIZE 4
 
 #define SMB2_QUERY_DIRECTORY_REQUEST_SIZE 33
@@ -387,7 +423,6 @@ struct smb2_flush_request {
 #define SMB2_FILE_DIRECTORY_INFORMATION         0x01
 #define SMB2_FILE_FULL_DIRECTORY_INFORMATION    0x02
 #define SMB2_FILE_BOTH_DIRECTORY_INFORMATION    0x03
-#define SMB2_FILE_NAMES_INFORMATION             0x0c
 #define SMB2_FILE_ID_BOTH_DIRECTORY_INFORMATION 0x25
 #define SMB2_FILE_ID_FULL_DIRECTORY_INFORMATION 0x26
 
@@ -396,6 +431,8 @@ struct smb2_flush_request {
 #define SMB2_RETURN_SINGLE_ENTRY 0x02
 #define SMB2_INDEX_SPECIFIED     0x04
 #define SMB2_REOPEN              0x10
+
+#define SMB2_FILEID_FULL_DIRECTORY_INFORMATION_SIZE  80
 
 /* Structure for SMB2_FILE_ID_FULL_DIRECTORY_INFORMATION.
  * This is also used as the dirent content.
@@ -410,9 +447,32 @@ struct smb2_fileidfulldirectoryinformation {
         uint64_t end_of_file;
         uint64_t allocation_size;
         uint32_t file_attributes;
+        uint32_t file_name_length;
         uint32_t ea_size;
         uint64_t file_id;
-        const char *name;
+        const char *name; /* or "reserved" for replys */
+};
+
+#define SMB2_FILEID_BOTH_DIRECTORY_INFORMATION_SIZE  104
+
+/* Structure for SMB2_FILE_ID_BOTH_DIRECTORY_INFORMATION.
+ */
+struct smb2_fileidbothdirectoryinformation {
+        uint32_t next_entry_offset;
+        uint32_t file_index;
+        struct smb2_timeval creation_time;
+        struct smb2_timeval last_access_time;
+        struct smb2_timeval last_write_time;
+        struct smb2_timeval change_time;
+        uint64_t end_of_file;
+        uint64_t allocation_size;
+        uint32_t file_attributes;
+        uint32_t file_name_length;
+        uint32_t ea_size;
+        uint8_t short_name_length;
+        uint8_t short_name[24];
+        uint64_t file_id;
+        const char *name; /* or "reserved" for replys */
 };
 
 struct smb2_iovec;
@@ -420,14 +480,16 @@ int smb2_decode_fileidfulldirectoryinformation(
         struct smb2_context *smb2,
         struct smb2_fileidfulldirectoryinformation *fs,
         struct smb2_iovec *vec);
-        
+
 struct smb2_query_directory_request {
         uint8_t file_information_class;
         uint8_t flags;
         uint32_t file_index;
         smb2_file_id file_id;
-        const char *name;       /* name in UTF8 */
         uint32_t output_buffer_length;
+        uint16_t file_name_offset;
+        uint16_t file_name_length;
+        const char *name;       /* name in UTF8 */
 };
 
 #define SMB2_QUERY_DIRECTORY_REPLY_SIZE 9
@@ -455,6 +517,7 @@ struct smb2_read_request {
         uint32_t minimum_count;
         uint32_t channel;
         uint32_t remaining_bytes;
+        uint16_t read_channel_info_offset;
         uint16_t read_channel_info_length;
         uint8_t *read_channel_info;
 };
@@ -465,6 +528,7 @@ struct smb2_read_reply {
         uint8_t data_offset;
         uint32_t data_length;
         uint32_t data_remaining;
+        uint8_t *data;
 };
 
 #define SMB2_QUERY_INFO_REQUEST_SIZE 41
@@ -476,20 +540,57 @@ struct smb2_read_reply {
 #define SMB2_0_INFO_QUOTA      0x04
 
 /* File information class : for SMB2_0_INFO_FILE */
+#define SMB2_FILE_DIRECTORY_INFORMATION         0x01
+#define SMB2_FILE_FULL_DIRECTORY_INFORMATION    0x02
+#define SMB2_FILE_BOTH_DIRECTORY_INFORMATION    0x03
 #define SMB2_FILE_BASIC_INFORMATION             0x04
 #define SMB2_FILE_STANDARD_INFORMATION          0x05
-#define SMB2_FILE_RENAME_INFORMATION            0x0a
+#define SMB2_FILE_INTERNAL_INFORMATION          0x06
+#define SMB2_FILE_EA_INFORMATION                0x07
+#define SMB2_FILE_ACCESS_INFORMATION            0x08
+#define SMB2_FILE_NAME_INFORMATION              0x09
+#define SMB2_FILE_RENAME_INFORMATION            0x0A
+#define SMB2_FILE_LINK_INFORMATION              0x0B
+#define SMB2_FILE_NAMES_INFORMATION             0x0C
+#define SMB2_FILE_DISPOSITION_INFORMATION       0x0D
+#define SMB2_FILE_POSITION_INFORMATION          0x0E
+#define SMB2_FILE_FULL_EA_INFORMATION           0x0F
+#define SMB2_FILE_MODE_INFORMATION              0x10
+#define SMB2_FILE_ALIGNMENT_INFORMATION         0x11
 #define SMB2_FILE_ALL_INFORMATION               0x12
+#define SMB2_FILE_ALLOCATION_INFORMATION        0x13
 #define SMB2_FILE_END_OF_FILE_INFORMATION       0x14
+#define SMB2_FILE_ALTERNATE_NAME_INFORMATION    0x15
+#define SMB2_FILE_OBJECT_ID_INFORMATION         0x1D
+#define SMB2_FILE_ATTRIBUTE_TAG_INFORMATION     0x23
+#define SMB2_FILE_VALID_DATA_LENGTH_INFORMATION 0x27
+#define SMB2_FILE_NORMALIZED_NAME_INFORMATION   0x30
+#define SMB2_FILE_ID_INFORMATION                0x3B
+
+#define SMB2_FILE_STREAM_INFORMATION            0x16
+#define SMB2_FILE_PIPE_INFORMATION              0x17
+#define SMB2_FILE_PIPE_LOCAL_INFORMATION        0x18
+#define SMB2_FILE_PIPE_REMOTE_INFORMATION       0x19
+#define SMB2_FILE_MAILSLOT_QUERY_INFORMATION    0x1A
+#define SMB2_FILE_MAILSLOT_SET_INFORMATION      0x1B
+#define SMB2_FILE_COMPRESSION_INFORMATION       0x1C
+#define SMB2_FILE_OBJECT_ID_INFORMATION         0x1D
+#define SMB2_FILE_QUOTA_INFORMATION             0x20
+#define SMB2_FILE_REPARSE_POINT_INFORMATION     0x21
+#define SMB2_FILE_NETWORK_OPEN_INFORMATION      0x22
 
 /* Filesystem information class : for SMB2_0_INFO_FILESYSTEM */
 #define SMB2_FILE_FS_VOLUME_INFORMATION            1
 #define SMB2_FILE_FS_SIZE_INFORMATION              3
 #define SMB2_FILE_FS_DEVICE_INFORMATION            4
+#define SMB2_FILE_FS_ATTRIBUTE_INFORMATION         5
 #define SMB2_FILE_FS_CONTROL_INFORMATION           6
 #define SMB2_FILE_FS_FULL_SIZE_INFORMATION         7
+#define SMB2_FILE_FS_OBJECT_ID_INFORMATION         8
 #define SMB2_FILE_FS_SECTOR_SIZE_INFORMATION      11
-        
+
+#define SMB2_FILE_INFO_CLASS_RESERVED           0x40
+
 /* additional info */
 #define SMB2_OWNER_SECURITY_INFORMATION     0x00000001
 #define SMB2_GROUP_SECURITY_INFORMATION     0x00000002
@@ -499,7 +600,6 @@ struct smb2_read_reply {
 #define SMB2_ATTRIBUTE_SECURITY_INFORMATION 0x00000020
 #define SMB2_SCOPE_SECURITY_INFORMATION     0x00000040
 #define SMB2_BACKUP_SECURITY_INFORMATION    0x00010000
-
 
 /* flags */
 #define SL_RESTART_SCAN        0x00000001
@@ -529,6 +629,32 @@ struct smb2_file_standard_info {
 };
 
 /*
+ * FILE_STREAM_INFORMATION
+ */
+struct smb2_file_stream_info {
+        uint32_t next_entry_offset;
+        uint32_t stream_name_length;
+        uint64_t stream_size;
+        uint64_t stream_allocation_size;
+        const char *stream_name;
+};
+
+/*
+ * FILE_POSITION_INFORMATION
+ */
+struct smb2_file_position_info {
+        uint64_t current_byte_offset;
+};
+
+/*
+ * FILE_NAME_INFORMATION
+ */
+struct smb2_file_name_info {
+        uint32_t file_name_length;
+        const uint8_t *name;
+};
+
+/*
  * FILE_ALL_INFORMATION.
  */
 struct smb2_file_all_info {
@@ -547,11 +673,13 @@ struct smb2_query_info_request {
         uint8_t info_type;
         uint8_t file_info_class;
         uint32_t output_buffer_length;
+        uint16_t input_buffer_offset;
         uint32_t input_buffer_length;
         uint8_t *input_buffer;
         uint32_t additional_information;
         uint32_t flags;
         smb2_file_id file_id;
+        const uint8_t *input;
 };
 
 /*
@@ -562,6 +690,13 @@ struct smb2_file_end_of_file_info {
 };
 
 /*
+ * FILE_DISPOSITION_INFORMATION.
+ */
+struct smb2_file_disposition_info {
+        uint8_t delete_pending;
+};
+
+/*
  * SMB2_FILE_RENAME_INFORMATION.
  */
 struct smb2_file_rename_info {
@@ -569,14 +704,29 @@ struct smb2_file_rename_info {
         const uint8_t* file_name;
 };
 
+/*
+ * FILE_NETWORK_OPEN_INFORMATION
+ */
+struct smb2_file_network_open_info {
+        struct smb2_timeval creation_time;
+        struct smb2_timeval last_access_time;
+        struct smb2_timeval last_write_time;
+        struct smb2_timeval change_time;
+        uint64_t allocation_size;
+        uint64_t end_of_file;
+        uint32_t file_attributes;
+};
+
 #define SMB2_SET_INFO_REQUEST_SIZE 33
 
 struct smb2_set_info_request {
         uint8_t info_type;
         uint8_t file_info_class;
-        void *input_data;
+        uint32_t buffer_length;
+        uint16_t buffer_offset;
         uint32_t additional_information;
         smb2_file_id file_id;
+        void *input_data;
 };
 
 #define SMB2_SET_INFO_REPLY_SIZE 2
@@ -586,12 +736,21 @@ struct smb2_set_info_request {
  */
 #define SID_ID_AUTH_LEN 6
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning( disable : 4200 ) /* Silence c4200 warning. */
+#endif
+
 struct smb2_sid {
         uint8_t revision;
         uint8_t sub_auth_count;
         uint8_t id_auth[SID_ID_AUTH_LEN];
         uint32_t sub_auth[0];
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 /*
  * ACE
@@ -647,11 +806,11 @@ struct smb2_ace {
          * SMB2_DENIED_ALLOWED_CALLBACK_ACE_TYPE,
          * SMB2_SYSTEM_RESOURCE_ATTRIBUTE_ACE_TYPE
          */
-        int   ad_len;
+        size_t ad_len;
         char *ad_data;
 
         /* raw blob, used for unknown ACE types */
-        int   raw_len;
+        size_t   raw_len;
         char *raw_data;
 };
 
@@ -712,6 +871,13 @@ struct smb2_file_fs_size_info {
         uint32_t bytes_per_sector;
 };
 
+struct smb2_file_fs_attribute_info {
+        uint32_t filesystem_attributes;
+        uint32_t maximum_component_name_length;
+        uint32_t filesystem_name_length;
+        const uint8_t *filesystem_name;
+};
+
 /* Device type */
 #define FILE_DEVICE_CD_ROM 0x00000002
 #define FILE_DEVICE_DISK   0x00000007
@@ -761,6 +927,11 @@ struct smb2_file_fs_full_size_info {
         uint64_t actual_available_allocation_units;
         uint32_t sectors_per_allocation_unit;
         uint32_t bytes_per_sector;
+};
+
+struct smb2_file_fs_object_id_info {
+        smb2_guid object_id;
+        uint8_t extended_info[48];
 };
 
 /* Flags */
@@ -832,9 +1003,14 @@ struct smb2_reparse_data_buffer {
 struct smb2_ioctl_request {
         uint32_t ctl_code;
         smb2_file_id file_id;
+        uint32_t input_offset;
         uint32_t input_count;
-        void *input;
+        uint32_t max_input_response;
+        uint32_t output_offset;
+        uint32_t output_count;
+        uint32_t max_output_response;
         uint32_t flags;
+        void *input;
 };
 
 #define SMB2_IOCTL_REPLY_SIZE 49
@@ -842,10 +1018,169 @@ struct smb2_ioctl_request {
 struct smb2_ioctl_reply {
         uint32_t ctl_code;
         smb2_file_id file_id;
+        uint32_t input_offset;
+        uint32_t input_count;
         uint32_t output_offset;
         uint32_t output_count;
-        void *output;
         uint32_t flags;
+        void *output;
+};
+
+#define SMB2_IOCTL_VALIDIATE_NEGOTIATE_INFO_SIZE 24
+
+struct  smb2_ioctl_validate_negotiate_info {
+        uint32_t capabilities;
+        uint8_t  guid[16];
+        uint16_t security_mode;
+        uint16_t dialect;
+};
+
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_FILE_NAME    0x00000001
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_DIR_NAME     0x00000002
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_ATTRIBUTES   0x00000004
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_SIZE         0x00000008
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_LAST_WRITE   0x00000010
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_LAST_ACCESS  0x00000020
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_CREATION     0x00000040
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_EA           0x00000080
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_SECURITY     0x00000100
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_STREAM_NAME  0x00000200
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_STREAM_SIZE  0x00000400
+#define SMB2_CHANGE_NOTIFY_FILE_NOTIFY_CHANGE_STREAM_WRITE 0x00000800
+
+#define SMB2_CHANGE_NOTIFY_WATCH_TREE    0x0001
+
+#define SMB2_CHANGE_NOTIFY_REQUEST_SIZE 32
+
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_ADDED                0x0001
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_REMOVED              0x0002
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_MODIFIED             0x0003
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_RENAMED_OLD_NAME     0x0004
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_RENAMED_NEW_NAME     0x0005
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_ADDED_STREAM         0x0006
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_REMOVED_STREAM       0x0007
+#define SMB2_NOTIFY_CHANGE_FILE_ACTION_MODIFIED_STREAM      0x0008
+
+struct smb2_change_notify_request {
+        uint16_t flags;
+        uint32_t output_buffer_length;
+        smb2_file_id file_id;
+        uint32_t completion_filter;
+};
+
+#define SMB2_CHANGE_NOTIFY_REPLY_SIZE 9
+
+struct smb2_change_notify_reply {
+        uint16_t output_buffer_offset;
+        uint32_t output_buffer_length;
+        uint8_t *output;
+};
+
+struct smb2_file_notify_change_information {
+        uint32_t action;
+        const char *name;
+        struct smb2_file_notify_change_information *next;
+};
+
+int
+smb2_decode_filenotifychangeinformation(
+    struct smb2_context *smb2,
+    struct smb2_file_notify_change_information *fnc,
+    struct smb2_iovec *vec,
+    uint32_t next_entry_offset);
+
+#define SMB2_OPLOCK_LEVEL_NONE        0x00
+#define SMB2_OPLOCK_LEVEL_II          0x01
+#define SMB2_OPLOCK_LEVEL_EXCLUSIVE   0x08
+
+#define SMB2_OPLOCK_BREAK_NOTIFICATION_SIZE 24
+
+struct smb2_oplock_break_notification {
+        uint8_t oplock_level;
+        smb2_file_id file_id;
+};
+
+#define SMB2_OPLOCK_BREAK_ACKNOWLEDGE_SIZE 24
+
+struct smb2_oplock_break_acknowledgement {
+        uint8_t oplock_level;
+        smb2_file_id file_id;
+};
+
+#define SMB2_OPLOCK_BREAK_REPLY_SIZE 24
+
+struct smb2_oplock_break_reply {
+        uint8_t oplock_level;
+        smb2_file_id file_id;
+};
+
+#define SMB2_LEASE_NONE                 0x00
+#define SMB2_LEASE_READ_CACHING         0x01
+#define SMB2_LEASE_HANDLE_CACHING       0x02
+#define SMB2_LEASE_WRITE_CACHING        0x04
+
+#define SMB2_BREAK_TYPE_OPLOCK_NOTIFICATION     0x01
+#define SMB2_BREAK_TYPE_OPLOCK_RESPONSE         0x02
+#define SMB2_BREAK_TYPE_OPLOCK_ACKNOWLEDGE      0x03
+
+#define SMB2_BREAK_TYPE_LEASE_NOTIFICATION      0x04
+#define SMB2_BREAK_TYPE_LEASE_RESPONSE          0x05
+#define SMB2_BREAK_TYPE_LEASE_ACKNOWLEDGE       0x06
+
+#define SMB2_LEASE_BREAK_NOTIFICATION_SIZE 44
+
+struct smb2_lease_break_notification {
+        uint16_t new_epoch;
+        uint32_t flags;
+        smb2_lease_key lease_key;
+        uint32_t current_lease_state;
+        uint32_t new_lease_state;
+        uint32_t break_reason;
+        uint32_t access_mask_hint;
+        uint32_t share_mask_hint;
+};
+
+#define SMB2_LEASE_BREAK_ACKNOWLEDGE_SIZE 36
+
+struct smb2_lease_break_acknowledgement {
+        uint32_t flags;
+        smb2_lease_key lease_key;
+        uint32_t lease_state;
+        uint64_t lease_duration;
+};
+
+#define SMB2_LEASE_BREAK_REPLY_SIZE 36
+
+struct smb2_lease_break_reply {
+        uint32_t flags;
+        smb2_lease_key lease_key;
+        uint32_t lease_state;
+        uint64_t lease_duration;
+};
+
+/* note that for oplocks, notifications (request) and responses (reply)
+ * come from the server, while acknowledgements come from the client
+ */
+struct smb2_oplock_or_lease_break_reply {
+        uint16_t struct_size;
+        int break_type;
+        union {
+                struct smb2_oplock_break_notification oplock;
+                struct smb2_oplock_break_reply oplockrep;
+                struct smb2_lease_break_notification lease;
+                struct smb2_lease_break_reply leaserep;
+        }
+        lock;
+};
+
+struct smb2_oplock_or_lease_break_request {
+        uint16_t struct_size;
+        int break_type;
+        union {
+                struct smb2_oplock_break_acknowledgement oplock;
+                struct smb2_lease_break_acknowledgement lease;
+        }
+        lock;
 };
 
 #define SMB2_WRITE_REQUEST_SIZE 49
@@ -854,12 +1189,14 @@ struct smb2_ioctl_reply {
 #define SMB2_WRITEFLAG_WRITE_UNBUFFERED 0x00000002
 
 struct smb2_write_request {
+        uint16_t data_offset;
         uint32_t length;
         uint64_t offset;
         const uint8_t* buf;
         smb2_file_id file_id;
         uint32_t channel;
         uint32_t remaining_bytes;
+        uint16_t write_channel_info_offset;
         uint16_t write_channel_info_length;
         uint8_t *write_channel_info;
         uint32_t flags;
@@ -872,8 +1209,32 @@ struct smb2_write_reply {
         uint32_t remaining;
 };
 
+#define SMB2_LOCK_ELEMENT_SIZE 24
+
+struct smb2_lock_element {
+        uint64_t offset;
+        uint64_t length;
+        uint32_t flags;
+        uint32_t reserved;
+};
+
+/* Note that this size includes 1 lock element */
+#define SMB2_LOCK_REQUEST_SIZE 48
+
+struct smb2_lock_request {
+        uint16_t lock_count;
+        uint8_t  lock_sequence_number;
+        uint32_t lock_sequence_index;
+        smb2_file_id file_id;
+        struct smb2_lock_element *locks;
+};
+
+#define SMB2_LOCK_REPLY_SIZE 4
+
+
 #define SMB2_ECHO_REQUEST_SIZE 4
 #define SMB2_ECHO_REPLY_SIZE 4
+#define SMB2_CANCEL_REQUEST_SIZE 4
 
 #define SMB2_LOGOFF_REQUEST_SIZE 4
 #define SMB2_LOGOFF_REPLY_SIZE 4

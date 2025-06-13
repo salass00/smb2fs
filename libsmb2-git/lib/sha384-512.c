@@ -114,7 +114,6 @@
 /*
  * Add the 4word value in word2 to word1.
  */
-//static uint32_t ADDTO4_temp, ADDTO4_temp2;
 #define SHA512_ADDTO4(word1, word2) (                          \
     ADDTO4_temp = (word1)[3],                                  \
     (word1)[3] += (word2)[3],                                  \
@@ -127,7 +126,6 @@
 /*
  * Add the 2word value in word2 to word1.
  */
-//static uint32_t ADDTO2_temp;
 #define SHA512_ADDTO2(word1, word2) (                          \
     ADDTO2_temp = (word1)[1],                                  \
     (word1)[1] += (word2)[1],                                  \
@@ -136,7 +134,6 @@
 /*
  * SHA rotate   ((word >> bits) | (word << (64-bits)))
  */
-//static uint32_t ROTR_temp1[2], ROTR_temp2[2];
 #define SHA512_ROTR(bits, word, ret) (                         \
     SHA512_SHR((bits), (word), ROTR_temp1),                    \
     SHA512_SHL(64-(bits), (word), ROTR_temp2),                 \
@@ -146,7 +143,6 @@
  * Define the SHA SIGMA and sigma macros
  *  SHA512_ROTR(28,word) ^ SHA512_ROTR(34,word) ^ SHA512_ROTR(39,word)
  */
-//static uint32_t SIGMA0_temp1[2], SIGMA0_temp2[2], SIGMA0_temp3[2], SIGMA0_temp4[2];
 #define SHA512_SIGMA0(word, ret) (                             \
     SHA512_ROTR(28, (word), SIGMA0_temp1),                     \
     SHA512_ROTR(34, (word), SIGMA0_temp2),                     \
@@ -157,7 +153,6 @@
 /*
  * SHA512_ROTR(14,word) ^ SHA512_ROTR(18,word) ^ SHA512_ROTR(41,word)
  */
-//static uint32_t SIGMA1_temp1[2], SIGMA1_temp2[2], SIGMA1_temp3[2], SIGMA1_temp4[2];
 #define SHA512_SIGMA1(word, ret) (                             \
     SHA512_ROTR(14, (word), SIGMA1_temp1),                     \
     SHA512_ROTR(18, (word), SIGMA1_temp2),                     \
@@ -168,7 +163,6 @@
 /*
  * (SHA512_ROTR( 1,word) ^ SHA512_ROTR( 8,word) ^ SHA512_SHR( 7,word))
  */
-//static uint32_t sigma0_temp1[2], sigma0_temp2[2], sigma0_temp3[2], sigma0_temp4[2];
 #define SHA512_sigma0(word, ret) (                             \
     SHA512_ROTR( 1, (word), sigma0_temp1),                     \
     SHA512_ROTR( 8, (word), sigma0_temp2),                     \
@@ -179,7 +173,6 @@
 /*
  * (SHA512_ROTR(19,word) ^ SHA512_ROTR(61,word) ^ SHA512_SHR( 6,word))
  */
-//static uint32_t sigma1_temp1[2], sigma1_temp2[2], sigma1_temp3[2], sigma1_temp4[2];
 #define SHA512_sigma1(word, ret) (                             \
     SHA512_ROTR(19, (word), sigma1_temp1),                     \
     SHA512_ROTR(61, (word), sigma1_temp2),                     \
@@ -195,7 +188,6 @@
  * These definitions are the ones used in FIPS-180-2, section 4.1.3
  *  Ch(x,y,z)   ((x & y) ^ (~x & z))
  */
-//static uint32_t Ch_temp1[2], Ch_temp2[2], Ch_temp3[2];
 #define SHA_Ch(x, y, z, ret) (                                 \
     SHA512_AND(x, y, Ch_temp1),                                \
     SHA512_TILDA(x, Ch_temp2),                                 \
@@ -204,7 +196,6 @@
 /*
  *  Maj(x,y,z)  (((x)&(y)) ^ ((x)&(z)) ^ ((y)&(z)))
  */
-//static uint32_t Maj_temp1[2], Maj_temp2[2], Maj_temp3[2], Maj_temp4[2];
 #define SHA_Maj(x, y, z, ret) (                                \
     SHA512_AND(x, y, Maj_temp1),                               \
     SHA512_AND(x, z, Maj_temp2),                               \
@@ -235,8 +226,6 @@
 /*
  * add "length" to the length
  */
-//static uint32_t addTemp[4] = { 0, 0, 0, 0 };
-
 #define SHA384_512AddLength(context, length) (                        \
     addTemp[3] = (length), SHA512_ADDTO4((context)->Length, addTemp), \
     (context)->Corrupted = (((context)->Length[3] == 0) &&            \
@@ -357,7 +346,7 @@ SHA384Reset (SHA384Context * context)
  */
 int
 SHA384Input (SHA384Context * context,
-	     const uint8_t * message_array, unsigned int length)
+	     const uint8_t * message_array, size_t length)
 {
   return SHA512Input (context, message_array, length);
 }
@@ -384,7 +373,7 @@ SHA384Input (SHA384Context * context,
  */
 int
 SHA384FinalBits (SHA384Context * context,
-		 const uint8_t message_bits, unsigned int length)
+		 const uint8_t message_bits, size_t length)
 {
   return SHA512FinalBits (context, message_bits, length);
 }
@@ -457,12 +446,12 @@ SHA512Reset (SHA512Context * context)
  */
 int
 SHA512Input (SHA512Context * context,
-	     const uint8_t * message_array, unsigned int length)
+	     const uint8_t * message_array, size_t length)
 {
 #ifdef USE_32BIT_ONLY
   /* nothing */
 #else
-  static uint64_t addTemp;
+  uint64_t addTemp;
 #endif
 
   if (!length)
@@ -517,12 +506,12 @@ SHA512Input (SHA512Context * context,
  */
 int
 SHA512FinalBits (SHA512Context * context,
-		 const uint8_t message_bits, unsigned int length)
+		 const uint8_t message_bits, size_t length)
 {
 #ifdef USE_32BIT_ONLY
   /* nothing */
 #else
-  static uint64_t addTemp;
+  uint64_t addTemp;
 #endif
   uint8_t masks[8] = {
     /* 0 0b00000000 */ 0x00, /* 1 0b10000000 */ 0x80,
@@ -827,18 +816,18 @@ SHA384_512ProcessMessageBlock (SHA512Context * context)
 
   for (t = t2 = 0; t < 80; t++, t2 += 2)
     {
-      /*
-       * temp1 = H + SHA512_SIGMA1(E) + SHA_Ch(E,F,G) + K[t] + W[t];
-       */
+#if 0 
+      temp1 = H + SHA512_SIGMA1(E) + SHA_Ch(E,F,G) + K[t] + W[t];
+#endif       
       SHA512_SIGMA1 (E, temp1);
       SHA512_ADD (H, temp1, temp2);
       SHA_Ch (E, F, G, temp3);
       SHA512_ADD (temp2, temp3, temp4);
       SHA512_ADD (&K[t2], &W[t2], temp5);
       SHA512_ADD (temp4, temp5, temp1);
-      /*
-       * temp2 = SHA512_SIGMA0(A) + SHA_Maj(A,B,C);
-       */
+#if 0    
+      temp2 = SHA512_SIGMA0(A) + SHA_Maj(A,B,C);
+#endif 
       SHA512_SIGMA0 (A, temp3);
       SHA_Maj (A, B, C, temp4);
       SHA512_ADD (temp3, temp4, temp2);
@@ -899,7 +888,7 @@ SHA384_512ProcessMessageBlock (SHA512Context * context)
   };
   int t, t8;			/* Loop counter */
   uint64_t temp1, temp2;	/* Temporary word value */
-  uint64_t W[80];		/* Word sequence */
+  uint64_t W[80] _U_;		/* Word sequence */
   uint64_t A, B, C, D, E, F, G, H;	/* Word buffers */
 
   /*
