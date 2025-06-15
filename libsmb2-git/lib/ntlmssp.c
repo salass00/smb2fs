@@ -81,6 +81,8 @@
 #include "hmac-md5.h"
 #include "ntlmssp.h"
 
+#include <clib/debug_protos.h>
+
 struct auth_data {
         unsigned char *buf;
         size_t len;
@@ -382,7 +384,7 @@ ntlm_decode_challenge_message(struct smb2_context *smb2, struct auth_data *auth_
 
                 if (inlen > 0 && inlen < len && (outoff + inlen) < alloc_len) {
                         /* back annotate target info field offset */
-                        u32 = htole16(outoff);
+                        u32 = htole32(outoff);
                         memcpy(&auth_data->ntlm_buf[44], &u32, 4);
 
                         /* transcode target info fields, appending our target-name */
