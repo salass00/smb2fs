@@ -1374,32 +1374,6 @@ int smb2_serve_port_async(const int fd, const int to_msecs, struct smb2_context 
 int smb2_serve_port(struct smb2_server *server, const int max_connections, smb2_client_connection cb, void *cb_data);
 
 /*
- * Async utimens()
- *
- * Returns
- *  0     : The operation was initiated. Result of the operation will be
- *          reported through the callback function.
- * -errno : There was an error. The callback function will not be invoked.
- *
- * When the callback is invoked, status indicates the result:
- *      0 : Success.
- * -errno : An error occurred.
- */
-int smb2_utimens_async(struct smb2_context *smb2, const char *path,
-                       const struct timespec tv[2], smb2_command_cb cb,
-                       void *cb_data);
-
-/*
- * Sync utimens()
- *
- * Returns:
- * 0      : successfully send the message and received a reply.
- * -errno : Failure.
- */
-int smb2_utimens(struct smb2_context *smb2, const char *path,
-                 const struct timespec tv[2]);
-
-/*
  * Some symbols have moved over to a different header file to allow better
  * separation between dcerpc and smb2, so we need to include this header
  * here to retain compatibility for apps that depend on those symbols.

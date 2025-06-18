@@ -39,6 +39,9 @@ LONG request_reconnect(const char *server);
 
 int smb2fs_main(struct DosPacket *pkt);
 
+struct smb2_context;
+int smb2_utimens(struct smb2_context *smb2, const char *path, const struct timespec tv[2]);
+
 #ifdef __libnix__
 size_t strlcpy(char *dst, const char *src, size_t size);
 size_t strlcat(char *dst, const char *src, size_t size);
