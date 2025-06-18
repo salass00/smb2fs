@@ -1211,7 +1211,15 @@ static int smb2fs_utimens(const char *path, const struct timespec tv[2])
 	char pathbuf[MAXPATHLEN];
 
 	if (fsd == NULL)
-		return -ENODEV;
+	{
+		if(cfg_reconnect_req)
+		{
+			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
+				return -ENODEV;
+		}
+		else if(!smb2fs_init(NULL))
+			return -ENODEV;
+	}
 
 	if (fsd->rdonly)
 		return -EROFS;
@@ -1222,6 +1230,8 @@ static int smb2fs_utimens(const char *path, const struct timespec tv[2])
 		strlcat(pathbuf, path, sizeof(pathbuf));
 		path = pathbuf;
 	}
+
+	if (path[0] == '/') path++; /* Remove initial slash */
 
 	rc = smb2_utimens(fsd->smb2, path, tv);
 	if (rc < 0)
