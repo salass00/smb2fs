@@ -595,6 +595,7 @@ int smb2_get_nterror(struct smb2_context *smb2);
 struct smb2_url {
         const char *domain;
         const char *user;
+        const char *password;
         const char *server;
         const char *share;
         const char *path;
