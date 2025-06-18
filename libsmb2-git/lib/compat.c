@@ -259,6 +259,7 @@ int smb2_getaddrinfo(const char *node, const char*service,
         struct sockaddr_in *sin;
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
         struct hostent *host;
+        in_addr_t addr;
 #endif
 
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
@@ -272,7 +273,10 @@ int smb2_getaddrinfo(const char *node, const char*service,
         sin->sin_family=AF_INET;
 
 #if defined(__amigaos4__) || defined(__AMIGA__) || defined(__AROS__)
-        if (inet_aton(node, &sin->sin_addr) == 0) {
+        //if (inet_aton(node, &sin->sin_addr) == 0) {
+        if ((addr = inet_addr(node)) != INADDR_NONE) {
+                sin->sin_addr.s_addr = addr;
+        } else {
                 host = gethostbyname(node);
                 if (host == NULL) {
                         return -1;
