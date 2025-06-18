@@ -19,7 +19,7 @@ LIBS    = -ldebug
 
 STRIPFLAGS = -R.comment
 
-SRCS = start_os3.c main.c utimens.c marshalling.c asprintf.c getpid.c \
+SRCS = start_os3.c main.c smb2_utimens.c marshalling.c asprintf.c getpid.c \
        malloc.c random.c strlcpy.c strdup.c time.c reqtools/password-req.c \
        error-req.c reconnect-req.c
 

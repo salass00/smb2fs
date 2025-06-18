@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <smb2/smb2.h>
 #include <smb2/libsmb2.h>
