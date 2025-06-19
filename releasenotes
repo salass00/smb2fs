@@ -97,7 +97,7 @@ smb2-handler 53.9 (12.6.2025)
 - Added support for the DOMAIN argument.
 
 
-smb2-handler 53.10 (d.m.2025)
+smb2-handler 53.10 (19.6.2025)
 
 - Updated to a newer state of libsmb2 sources from the main repo (2025-06-07)
   and (re-)applied some changes needed for use with smb2fs.
