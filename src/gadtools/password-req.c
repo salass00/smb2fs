@@ -150,10 +150,13 @@ char *request_password(const char *user, const char *server)
 						char bodytext[256];
 						const char okaytext[] = "Ok";
 						const char canceltext[] = "Cancel";
+						UWORD wborleft;
+						UWORD wbortop;
 						UWORD bodytextwidth;
 						UWORD okaytextwidth;
 						UWORD canceltextwidth;
-						UWORD buttonwidth;
+						UWORD okaybtnwidth;
+						UWORD cancelbtnwidth;
 						struct RastPort temp_rp;
 						struct Gadget *glist, *gad;
 						struct Gadget *string;
@@ -161,9 +164,12 @@ char *request_password(const char *user, const char *server)
 						struct Hook edithook;
 						char buffer[256];
 
+						wborleft = screen->WBorLeft;
+						wbortop = screen->WBorTop + screen->Font->ta_YSize + 1;
+
 						bzero(buffer, sizeof(buffer));
 						bzero(&edithook, sizeof(edithook));
-						edithook.h_Entry = (HOOKFUNC)edithook_entry;
+						edithook.h_Entry = (APTR)edithook_entry;
 						edithook.h_Data  = buffer;
 
 						font = OpenFont(screen->Font);
@@ -176,19 +182,19 @@ char *request_password(const char *user, const char *server)
 						bodytextwidth = TextLength(&temp_rp, (CONST_STRPTR)bodytext, strlen(bodytext));
 						okaytextwidth = TextLength(&temp_rp, (CONST_STRPTR)okaytext, strlen(okaytext));
 						canceltextwidth = TextLength(&temp_rp, (CONST_STRPTR)canceltext, strlen(canceltext));
-						buttonwidth = MAX(okaytextwidth, canceltextwidth) + 6;
+
+						okaybtnwidth = okaytextwidth + 6 + (font->tf_XSize * 2);
+						cancelbtnwidth = canceltextwidth + 6 + (font->tf_XSize * 2);
 
 						gad = CreateContext(&glist);
 
 						bzero(&ng, sizeof(ng));
-						ng.ng_LeftEdge   = screen->WBorLeft + 2;
-						ng.ng_TopEdge    = screen->WBorTop + (font->tf_YSize * 2) + 6;
-						ng.ng_Width      = bodytextwidth;
+						ng.ng_LeftEdge   = wborleft + 2;
+						ng.ng_TopEdge    = wbortop + font->tf_YSize + 18;
+						ng.ng_Width      = bodytextwidth + 12;
 						ng.ng_Height     = font->tf_YSize + 6;
-						ng.ng_GadgetText = (STRPTR)bodytext;
 						ng.ng_TextAttr   = screen->Font;
 						ng.ng_GadgetID   = GID_STRING;
-						ng.ng_Flags      = PLACETEXT_ABOVE;
 						ng.ng_VisualInfo = vi;
 						string = gad = CreateGadget(STRING_KIND, gad, &ng,
 							GA_RelVerify,  TRUE,
@@ -198,9 +204,9 @@ char *request_password(const char *user, const char *server)
 							TAG_END);
 
 						bzero(&ng, sizeof(ng));
-						ng.ng_LeftEdge   = screen->WBorLeft + 2;
-						ng.ng_TopEdge    = screen->WBorTop + (font->tf_YSize * 3) + 14;
-						ng.ng_Width      = buttonwidth;
+						ng.ng_LeftEdge   = wborleft + 2;
+						ng.ng_TopEdge    = wbortop + (font->tf_YSize * 2) + 26;
+						ng.ng_Width      = okaybtnwidth;
 						ng.ng_Height     = font->tf_YSize + 6;
 						ng.ng_GadgetText = (STRPTR)okaytext;
 						ng.ng_TextAttr   = screen->Font;
@@ -212,9 +218,9 @@ char *request_password(const char *user, const char *server)
 							TAG_END);
 
 						bzero(&ng, sizeof(ng));
-						ng.ng_LeftEdge   = screen->WBorLeft + 2 + bodytextwidth - buttonwidth;
-						ng.ng_TopEdge    = screen->WBorTop + (font->tf_YSize * 3) + 14;
-						ng.ng_Width      = buttonwidth;
+						ng.ng_LeftEdge   = wborleft + bodytextwidth + 14 - cancelbtnwidth;
+						ng.ng_TopEdge    = wbortop + (font->tf_YSize * 2) + 26;
+						ng.ng_Width      = cancelbtnwidth;
 						ng.ng_Height     = font->tf_YSize + 6;
 						ng.ng_GadgetText = (STRPTR)canceltext;
 						ng.ng_TextAttr   = screen->Font;
@@ -231,8 +237,8 @@ char *request_password(const char *user, const char *server)
 							UWORD left, top;
 							struct Window *window;
 
-							width = screen->WBorLeft + screen->WBorRight + bodytextwidth + 4;
-							height = screen->WBorTop + screen->WBorBottom + (font->tf_YSize * 4) + 22;
+							width = wborleft + screen->WBorRight + bodytextwidth + 16;
+							height = wbortop + screen->WBorBottom + (font->tf_YSize * 3) + 34;
 
 							if (width > screen->Width)
 								width = screen->Width;
@@ -245,7 +251,7 @@ char *request_password(const char *user, const char *server)
 							window = OpenWindowTags(NULL,
 								WA_PubScreen, (Tag)screen,
 								WA_Title,     (Tag)VERS,
-								WA_Flags,     WFLG_ACTIVATE | WFLG_CLOSEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET,
+								WA_Flags,     WFLG_ACTIVATE | WFLG_CLOSEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET | WFLG_SIMPLE_REFRESH,
 								WA_IDCMP,     IDCMP_ACTIVEWINDOW | IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_REFRESHWINDOW,
 								WA_Left,      left,
 								WA_Top,       top,
@@ -260,6 +266,18 @@ char *request_password(const char *user, const char *server)
 								BOOL done = FALSE;
 
 								GT_RefreshWindow(window, NULL);
+
+								DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
+								             bodytextwidth + 12, font->tf_YSize + 12,
+								             GTBB_Recessed, TRUE,
+								             GT_VisualInfo, (Tag)vi,
+								             TAG_END);
+
+								SetFont(window->RPort, font);
+								/* FIXME: Don't use a hardcoded pen value here */
+								SetABPenDrMd(window->RPort, 1, 0, JAM1);
+								Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
+								Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
 
 								while (!done)
 								{
@@ -304,6 +322,19 @@ char *request_password(const char *user, const char *server)
 
 											case IDCMP_REFRESHWINDOW:
 												GT_BeginRefresh(window);
+
+												DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
+															 bodytextwidth + 12, font->tf_YSize + 12,
+															 GTBB_Recessed, TRUE,
+															 GT_VisualInfo, (Tag)vi,
+															 TAG_END);
+
+												SetFont(window->RPort, font);
+												/* FIXME: Don't use a hardcoded pen value here */
+												SetABPenDrMd(window->RPort, 1, 0, JAM1);
+												Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
+												Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
+
 												GT_EndRefresh(window, TRUE);
 												break;
 										}
