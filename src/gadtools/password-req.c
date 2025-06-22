@@ -54,9 +54,9 @@ static inline void strmove(char *dst, const char *src)
 		{
 			WORD len;
 			while (*s++ != '\0');
-			len = s - src;
+			len = s - src; /* includes NUL-terminator */
 			d += len;
-			do { *d-- = *s--; } while (len--);
+			while (len--) *--d = *--s;
 		}
 	}
 }
