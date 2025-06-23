@@ -118,6 +118,24 @@ enum
 	GID_CANCEL
 };
 
+static void draw_text_box(struct Window *window, struct DrawInfo *dri, APTR vi,
+                          struct TextFont *font, const char *bodytext, UWORD bodytextwidth)
+{
+	struct RastPort *rp = window->RPort;
+	UWORD wborleft = window->BorderLeft;
+	UWORD wbortop = window->BorderTop;
+
+	DrawBevelBox(rp, wborleft + 2, wbortop + 2, bodytextwidth + 12, font->tf_YSize + 12,
+	             GTBB_Recessed, TRUE,
+	             GT_VisualInfo, (Tag)vi,
+	             TAG_END);
+
+	SetFont(rp, font);
+	SetABPenDrMd(rp, dri->dri_Pens[TEXTPEN], 0, JAM1);
+	Move(rp, wborleft + 8, wbortop + 8 + font->tf_Baseline);
+	Text(rp, (CONST_STRPTR)bodytext, strlen(bodytext));
+}
+
 char *request_password(const char *user, const char *server)
 {
 	struct IntuitionBase *IntuitionBase;
@@ -271,17 +289,7 @@ char *request_password(const char *user, const char *server)
 			BOOL done = FALSE;
 
 			GT_RefreshWindow(window, NULL);
-
-			DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
-			             bodytextwidth + 12, font->tf_YSize + 12,
-			             GTBB_Recessed, TRUE,
-			             GT_VisualInfo, (Tag)vi,
-			             TAG_END);
-
-			SetFont(window->RPort, font);
-			SetABPenDrMd(window->RPort, dri->dri_Pens[TEXTPEN], 0, JAM1);
-			Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
-			Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
+			draw_text_box(window, dri, vi, font, bodytext, bodytextwidth);
 
 			while (!done)
 			{
@@ -326,18 +334,7 @@ char *request_password(const char *user, const char *server)
 
 						case IDCMP_REFRESHWINDOW:
 							GT_BeginRefresh(window);
-
-							DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
-										 bodytextwidth + 12, font->tf_YSize + 12,
-										 GTBB_Recessed, TRUE,
-										 GT_VisualInfo, (Tag)vi,
-										 TAG_END);
-
-							SetFont(window->RPort, font);
-							SetABPenDrMd(window->RPort, dri->dri_Pens[TEXTPEN], 0, JAM1);
-							Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
-							Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
-
+							draw_text_box(window, dri, vi, font, bodytext, bodytextwidth);
 							GT_EndRefresh(window, TRUE);
 							break;
 					}
