@@ -121,244 +121,247 @@ enum
 char *request_password(const char *user, const char *server)
 {
 	struct IntuitionBase *IntuitionBase;
+	struct GfxBase *GfxBase = NULL;
+	struct Library *GadToolsBase = NULL;
+	struct Screen *screen = NULL;
+	struct DrawInfo *dri = NULL;
+	APTR vi = NULL;
+	struct TextFont *font = NULL;
+	char bodytext[256];
+	const char okaytext[] = "Ok";
+	const char canceltext[] = "Cancel";
+	UWORD wborleft;
+	UWORD wbortop;
+	UWORD bodytextwidth;
+	UWORD okaytextwidth;
+	UWORD canceltextwidth;
+	UWORD okaybtnwidth;
+	UWORD cancelbtnwidth;
+	struct RastPort temp_rp;
+	struct Gadget *glist = NULL;
+	struct Gadget *gad;
+	struct Gadget *string;
+	struct NewGadget ng;
+	struct Hook edithook;
+	char buffer[256];
 	char *password = NULL;
 
 	IntuitionBase = (struct IntuitionBase *)OpenLibrary((STRPTR)"intuition.library", 39);
-	if (IntuitionBase != NULL)
+	if (IntuitionBase == NULL)
+		goto cleanup;
+
+	GfxBase = (struct GfxBase *)OpenLibrary((STRPTR)"graphics.library", 39);
+	if (GfxBase == NULL)
+		goto cleanup;
+
+	GadToolsBase = OpenLibrary((STRPTR)"gadtools.library", 39);
+	if (GadToolsBase == NULL)
+		goto cleanup;
+
+	screen = LockPubScreen(NULL);
+	if (screen == NULL)
+		goto cleanup;
+
+	dri = GetScreenDrawInfo(screen);
+	if (dri == NULL)
+		goto cleanup;
+
+	vi = GetVisualInfoA(screen, NULL);
+	if (vi == NULL)
+		goto cleanup;
+
+	wborleft = screen->WBorLeft;
+	wbortop = screen->WBorTop + screen->Font->ta_YSize + 1;
+
+	bzero(buffer, sizeof(buffer));
+	bzero(&edithook, sizeof(edithook));
+	edithook.h_Entry = (APTR)edithook_entry;
+	edithook.h_Data  = buffer;
+
+	font = OpenFont(screen->Font);
+
+	snprintf(bodytext, sizeof(bodytext), "Enter password for %s@%s", user, server);
+
+	InitRastPort(&temp_rp);
+	SetFont(&temp_rp, font);
+
+	bodytextwidth = TextLength(&temp_rp, (CONST_STRPTR)bodytext, strlen(bodytext));
+	okaytextwidth = TextLength(&temp_rp, (CONST_STRPTR)okaytext, strlen(okaytext));
+	canceltextwidth = TextLength(&temp_rp, (CONST_STRPTR)canceltext, strlen(canceltext));
+
+	okaybtnwidth = okaytextwidth + 6 + (font->tf_XSize * 2);
+	cancelbtnwidth = canceltextwidth + 6 + (font->tf_XSize * 2);
+
+	gad = CreateContext(&glist);
+
+	bzero(&ng, sizeof(ng));
+	ng.ng_LeftEdge   = wborleft + 2;
+	ng.ng_TopEdge    = wbortop + font->tf_YSize + 18;
+	ng.ng_Width      = bodytextwidth + 12;
+	ng.ng_Height     = font->tf_YSize + 6;
+	ng.ng_TextAttr   = screen->Font;
+	ng.ng_GadgetID   = GID_STRING;
+	ng.ng_VisualInfo = vi;
+	string = gad = CreateGadget(STRING_KIND, gad, &ng,
+		GA_RelVerify,  TRUE,
+		GTST_String,   (Tag)"",
+		GTST_MaxChars, sizeof(buffer) - 1,
+		GTST_EditHook, (Tag)&edithook,
+		TAG_END);
+
+	bzero(&ng, sizeof(ng));
+	ng.ng_LeftEdge   = wborleft + 2;
+	ng.ng_TopEdge    = wbortop + (font->tf_YSize * 2) + 26;
+	ng.ng_Width      = okaybtnwidth;
+	ng.ng_Height     = font->tf_YSize + 6;
+	ng.ng_GadgetText = (STRPTR)okaytext;
+	ng.ng_TextAttr   = screen->Font;
+	ng.ng_GadgetID   = GID_OKAY;
+	ng.ng_Flags      = PLACETEXT_IN;
+	ng.ng_VisualInfo = vi;
+	gad = CreateGadget(BUTTON_KIND, gad, &ng,
+		GA_RelVerify,  TRUE,
+		TAG_END);
+
+	bzero(&ng, sizeof(ng));
+	ng.ng_LeftEdge   = wborleft + bodytextwidth + 14 - cancelbtnwidth;
+	ng.ng_TopEdge    = wbortop + (font->tf_YSize * 2) + 26;
+	ng.ng_Width      = cancelbtnwidth;
+	ng.ng_Height     = font->tf_YSize + 6;
+	ng.ng_GadgetText = (STRPTR)canceltext;
+	ng.ng_TextAttr   = screen->Font;
+	ng.ng_GadgetID   = GID_CANCEL;
+	ng.ng_Flags      = PLACETEXT_IN;
+	ng.ng_VisualInfo = vi;
+	gad = CreateGadget(BUTTON_KIND, gad, &ng,
+		GA_RelVerify,  TRUE,
+		TAG_END);
+
+	if (gad != NULL)
 	{
-		struct GfxBase *GfxBase;
+		UWORD width, height;
+		UWORD left, top;
+		struct Window *window;
 
-		GfxBase = (struct GfxBase *)OpenLibrary((STRPTR)"graphics.library", 39);
-		if (GfxBase != NULL)
+		width = wborleft + screen->WBorRight + bodytextwidth + 16;
+		height = wbortop + screen->WBorBottom + (font->tf_YSize * 3) + 34;
+
+		if (width > screen->Width)
+			width = screen->Width;
+		if (height > screen->Height)
+			height = screen->Height;
+
+		left = (screen->Width - width) / 2;
+		top = (screen->Height - height) / 2;
+
+		window = OpenWindowTags(NULL,
+			WA_PubScreen, (Tag)screen,
+			WA_Title,     (Tag)VERS,
+			WA_Flags,     WFLG_ACTIVATE | WFLG_CLOSEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET | WFLG_SIMPLE_REFRESH,
+			WA_IDCMP,     IDCMP_ACTIVEWINDOW | IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_REFRESHWINDOW,
+			WA_Left,      left,
+			WA_Top,       top,
+			WA_Width,     width,
+			WA_Height,    height,
+			WA_Gadgets,   (Tag)glist,
+			TAG_END);
+		if (window != NULL)
 		{
-			struct Library *GadToolsBase;
+			struct IntuiMessage *imsg;
+			BOOL done = FALSE;
 
-			GadToolsBase = OpenLibrary((STRPTR)"gadtools.library", 39);
-			if (GadToolsBase != NULL)
+			GT_RefreshWindow(window, NULL);
+
+			DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
+			             bodytextwidth + 12, font->tf_YSize + 12,
+			             GTBB_Recessed, TRUE,
+			             GT_VisualInfo, (Tag)vi,
+			             TAG_END);
+
+			SetFont(window->RPort, font);
+			SetABPenDrMd(window->RPort, dri->dri_Pens[TEXTPEN], 0, JAM1);
+			Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
+			Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
+
+			while (!done)
 			{
-				struct Screen *screen;
+				Wait(1UL << window->UserPort->mp_SigBit);
 
-				screen = LockPubScreen(NULL);
-				if (screen != NULL)
+				while ((imsg = GT_GetIMsg(window->UserPort)) != NULL)
 				{
-					APTR vi;
-
-					vi = GetVisualInfoA(screen, NULL);
-					if (vi != NULL)
+					switch (imsg->Class)
 					{
-						struct TextFont *font;
-						char bodytext[256];
-						const char okaytext[] = "Ok";
-						const char canceltext[] = "Cancel";
-						UWORD wborleft;
-						UWORD wbortop;
-						UWORD bodytextwidth;
-						UWORD okaytextwidth;
-						UWORD canceltextwidth;
-						UWORD okaybtnwidth;
-						UWORD cancelbtnwidth;
-						struct RastPort temp_rp;
-						struct Gadget *glist, *gad;
-						struct Gadget *string;
-						struct NewGadget ng;
-						struct Hook edithook;
-						char buffer[256];
+						case IDCMP_ACTIVEWINDOW:
+							ActivateGadget(string, window, NULL);
+							break;
 
-						wborleft = screen->WBorLeft;
-						wbortop = screen->WBorTop + screen->Font->ta_YSize + 1;
+						case IDCMP_CLOSEWINDOW:
+							done = TRUE;
+							break;
 
-						bzero(buffer, sizeof(buffer));
-						bzero(&edithook, sizeof(edithook));
-						edithook.h_Entry = (APTR)edithook_entry;
-						edithook.h_Data  = buffer;
-
-						font = OpenFont(screen->Font);
-
-						snprintf(bodytext, sizeof(bodytext), "Enter password for %s@%s", user, server);
-
-						InitRastPort(&temp_rp);
-						SetFont(&temp_rp, font);
-
-						bodytextwidth = TextLength(&temp_rp, (CONST_STRPTR)bodytext, strlen(bodytext));
-						okaytextwidth = TextLength(&temp_rp, (CONST_STRPTR)okaytext, strlen(okaytext));
-						canceltextwidth = TextLength(&temp_rp, (CONST_STRPTR)canceltext, strlen(canceltext));
-
-						okaybtnwidth = okaytextwidth + 6 + (font->tf_XSize * 2);
-						cancelbtnwidth = canceltextwidth + 6 + (font->tf_XSize * 2);
-
-						gad = CreateContext(&glist);
-
-						bzero(&ng, sizeof(ng));
-						ng.ng_LeftEdge   = wborleft + 2;
-						ng.ng_TopEdge    = wbortop + font->tf_YSize + 18;
-						ng.ng_Width      = bodytextwidth + 12;
-						ng.ng_Height     = font->tf_YSize + 6;
-						ng.ng_TextAttr   = screen->Font;
-						ng.ng_GadgetID   = GID_STRING;
-						ng.ng_VisualInfo = vi;
-						string = gad = CreateGadget(STRING_KIND, gad, &ng,
-							GA_RelVerify,  TRUE,
-							GTST_String,   (Tag)"",
-							GTST_MaxChars, sizeof(buffer) - 1,
-							GTST_EditHook, (Tag)&edithook,
-							TAG_END);
-
-						bzero(&ng, sizeof(ng));
-						ng.ng_LeftEdge   = wborleft + 2;
-						ng.ng_TopEdge    = wbortop + (font->tf_YSize * 2) + 26;
-						ng.ng_Width      = okaybtnwidth;
-						ng.ng_Height     = font->tf_YSize + 6;
-						ng.ng_GadgetText = (STRPTR)okaytext;
-						ng.ng_TextAttr   = screen->Font;
-						ng.ng_GadgetID   = GID_OKAY;
-						ng.ng_Flags      = PLACETEXT_IN;
-						ng.ng_VisualInfo = vi;
-						gad = CreateGadget(BUTTON_KIND, gad, &ng,
-							GA_RelVerify,  TRUE,
-							TAG_END);
-
-						bzero(&ng, sizeof(ng));
-						ng.ng_LeftEdge   = wborleft + bodytextwidth + 14 - cancelbtnwidth;
-						ng.ng_TopEdge    = wbortop + (font->tf_YSize * 2) + 26;
-						ng.ng_Width      = cancelbtnwidth;
-						ng.ng_Height     = font->tf_YSize + 6;
-						ng.ng_GadgetText = (STRPTR)canceltext;
-						ng.ng_TextAttr   = screen->Font;
-						ng.ng_GadgetID   = GID_CANCEL;
-						ng.ng_Flags      = PLACETEXT_IN;
-						ng.ng_VisualInfo = vi;
-						gad = CreateGadget(BUTTON_KIND, gad, &ng,
-							GA_RelVerify,  TRUE,
-							TAG_END);
-
-						if (gad != NULL)
-						{
-							UWORD width, height;
-							UWORD left, top;
-							struct Window *window;
-
-							width = wborleft + screen->WBorRight + bodytextwidth + 16;
-							height = wbortop + screen->WBorBottom + (font->tf_YSize * 3) + 34;
-
-							if (width > screen->Width)
-								width = screen->Width;
-							if (height > screen->Height)
-								height = screen->Height;
-
-							left = (screen->Width - width) / 2;
-							top = (screen->Height - height) / 2;
-
-							window = OpenWindowTags(NULL,
-								WA_PubScreen, (Tag)screen,
-								WA_Title,     (Tag)VERS,
-								WA_Flags,     WFLG_ACTIVATE | WFLG_CLOSEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET | WFLG_SIMPLE_REFRESH,
-								WA_IDCMP,     IDCMP_ACTIVEWINDOW | IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_REFRESHWINDOW,
-								WA_Left,      left,
-								WA_Top,       top,
-								WA_Width,     width,
-								WA_Height,    height,
-								WA_Gadgets,   (Tag)glist,
-								TAG_END);
-							if (window != NULL)
+						case IDCMP_GADGETUP:
+							gad = imsg->IAddress;
+							switch (gad->GadgetID)
 							{
-								struct IntuiMessage *imsg;
-								
-								BOOL done = FALSE;
+								case GID_STRING:
+									if (imsg->Code != 0)
+										break;
 
-								GT_RefreshWindow(window, NULL);
-
-								DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
-								             bodytextwidth + 12, font->tf_YSize + 12,
-								             GTBB_Recessed, TRUE,
-								             GT_VisualInfo, (Tag)vi,
-								             TAG_END);
-
-								SetFont(window->RPort, font);
-								/* FIXME: Don't use a hardcoded pen value here */
-								SetABPenDrMd(window->RPort, 1, 0, JAM1);
-								Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
-								Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
-
-								while (!done)
-								{
-									Wait(1UL << window->UserPort->mp_SigBit);
-
-									while ((imsg = GT_GetIMsg(window->UserPort)) != NULL)
+									/* Fall through */
+								case GID_OKAY:
+									if (buffer[0] == '\0')
 									{
-										switch (imsg->Class)
-										{
-											case IDCMP_ACTIVEWINDOW:
-												ActivateGadget(string, window, NULL);
-												break;
-
-											case IDCMP_CLOSEWINDOW:
-												done = TRUE;
-												break;
-
-											case IDCMP_GADGETUP:
-												gad = imsg->IAddress;
-												switch (gad->GadgetID)
-												{
-													case GID_STRING:
-														if (imsg->Code != 0)
-															break;
-
-														/* Fall through */
-													case GID_OKAY:
-														if (buffer[0] == '\0')
-														{
-															DisplayBeep(screen);
-															break;
-														}
-
-														password = strdup(buffer);
-
-														/* Fall through */
-													case GID_CANCEL:
-														done = TRUE;
-														break;
-												}
-												break;
-
-											case IDCMP_REFRESHWINDOW:
-												GT_BeginRefresh(window);
-
-												DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
-															 bodytextwidth + 12, font->tf_YSize + 12,
-															 GTBB_Recessed, TRUE,
-															 GT_VisualInfo, (Tag)vi,
-															 TAG_END);
-
-												SetFont(window->RPort, font);
-												/* FIXME: Don't use a hardcoded pen value here */
-												SetABPenDrMd(window->RPort, 1, 0, JAM1);
-												Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
-												Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
-
-												GT_EndRefresh(window, TRUE);
-												break;
-										}
-										GT_ReplyIMsg(imsg);
+										DisplayBeep(screen);
+										break;
 									}
-								}
 
-								CloseWindow(window);
+									password = strdup(buffer);
+
+									/* Fall through */
+								case GID_CANCEL:
+									done = TRUE;
+									break;
 							}
-						}
+							break;
 
-						CloseFont(font);
+						case IDCMP_REFRESHWINDOW:
+							GT_BeginRefresh(window);
 
-						FreeGadgets(glist);
-						FreeVisualInfo(vi);
+							DrawBevelBox(window->RPort, wborleft + 2, wbortop + 2,
+										 bodytextwidth + 12, font->tf_YSize + 12,
+										 GTBB_Recessed, TRUE,
+										 GT_VisualInfo, (Tag)vi,
+										 TAG_END);
+
+							SetFont(window->RPort, font);
+							SetABPenDrMd(window->RPort, dri->dri_Pens[TEXTPEN], 0, JAM1);
+							Move(window->RPort, wborleft + 8, wbortop + 8 + font->tf_Baseline);
+							Text(window->RPort, (CONST_STRPTR)bodytext, strlen(bodytext));
+
+							GT_EndRefresh(window, TRUE);
+							break;
 					}
-					UnlockPubScreen(NULL, screen);
+					GT_ReplyIMsg(imsg);
 				}
-				CloseLibrary(GadToolsBase);
 			}
-			CloseLibrary((struct Library *)GfxBase);
+
+			CloseWindow(window);
 		}
-		CloseLibrary((struct Library *)IntuitionBase);
 	}
+
+cleanup:
+	if (screen != NULL)
+	{
+		if (font != NULL) CloseFont(font);
+		if (glist != NULL) FreeGadgets(glist);
+		if (vi != NULL) FreeVisualInfo(vi);
+		if (dri != NULL) FreeScreenDrawInfo(screen, dri);
+		UnlockPubScreen(NULL, screen);
+	}
+
+	if (GadToolsBase != NULL) CloseLibrary(GadToolsBase);
+	if (GfxBase != NULL) CloseLibrary((struct Library *)GfxBase);
+	if (IntuitionBase != NULL) CloseLibrary((struct Library *)IntuitionBase);
 
 	return password;
 }
