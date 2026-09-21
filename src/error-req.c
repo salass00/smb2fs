@@ -26,7 +26,6 @@
 #include "smb2-handler_rev.h"
 
 #ifndef __amigaos4__
-#include <proto/intuition.h>
 #include <clib/debug_protos.h>
 #endif
 
@@ -36,9 +35,6 @@
 
 void request_error(const char *error_string, ...)
 {
-#ifndef __amigaos4__
-	struct IntuitionBase *IntuitionBase;
-#endif
 	va_list args;
 	char errstr[256];
 
@@ -57,19 +53,11 @@ void request_error(const char *error_string, ...)
 		TAG_END);
 #else
 	KPrintF((STRPTR)"[smb2fs] %s\n", errstr);
-	IntuitionBase = (struct IntuitionBase *)OpenLibrary((STRPTR)"intuition.library", 39);
-	if (IntuitionBase != NULL)
-	{
-		struct EasyStruct es;
-		es.es_StructSize = sizeof(es);
-		es.es_Flags = 0;
-		es.es_Title = (STRPTR)VERS;
-		es.es_TextFormat = (STRPTR)errstr;
-		es.es_GadgetFormat = (STRPTR)"OK";
-		EasyRequestArgs(NULL, &es, NULL, NULL);
-
-		CloseLibrary((struct Library *)IntuitionBase);
-	}
+	/*
+	 * No requester. EasyRequestArgs() is modal and ran in the handler's own
+	 * process, so a dead connection blocked every task touching the volume
+	 * in DoPkt. The OS4 branch above is already non-blocking.
+	 */
 #endif
 }
 

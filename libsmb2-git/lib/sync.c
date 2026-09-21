@@ -64,6 +64,7 @@ static int wait_for_reply(struct smb2_context *smb2,
                           struct sync_cb_data *cb_data)
 {
         time_t t = time(NULL);
+        time_t last_progress = t;
 
         while (!cb_data->is_finished) {
 		struct pollfd pfd;
@@ -83,9 +84,21 @@ static int wait_for_reply(struct smb2_context *smb2,
 			smb2_set_error(smb2, "Timeout expired and no connection exists\n");
 			return -1;
 		}                
+                /* smb2_timeout_pdus() only sees a queued pdu, and socket.c
+                 * unqueues one as soon as its header arrives -- so a reply
+                 * dying mid-payload is on no queue. Bound the silence too. */
                 if (pfd.revents == 0) {
+                        if (smb2->timeout &&
+                            (time(NULL) - last_progress) > smb2->timeout) {
+                                smb2_set_error(smb2, "Connection stalled: no "
+                                               "socket activity for %d seconds "
+                                               "while awaiting a reply",
+                                               smb2->timeout);
+                                return -1;
+                        }
                         continue;
                 }
+                last_progress = time(NULL);
 		if (smb2_service(smb2, pfd.revents) < 0) {
 			smb2_set_error(smb2, "smb2_service failed with : "
                                         "%s\n", smb2_get_error(smb2));

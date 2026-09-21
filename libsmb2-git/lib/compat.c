@@ -507,6 +507,10 @@ int poll(struct pollfd *fds, unsigned int nfds, int timo)
                 toptr = &timeout;
                 timeout.tv_sec = (unsigned)timo / 1000;
                 timeout.tv_usec = ((unsigned)timo % 1000) * 1000;
+        } else {
+                /* Negative timeout means block indefinitely; select() wants NULL.
+                 * Without this, toptr is never written. */
+                toptr = NULL;
         }
 
 #else

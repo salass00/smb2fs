@@ -32,9 +32,12 @@
 #include <stdio.h>
 #include <string.h>
 
+/* File scope: the varargs stub from <proto/reqtools.h> resolves against the
+ * global ReqToolsBase, so a local of the same name does not link. */
+struct Library *ReqToolsBase;
+
 char *request_password(const char *user, const char *server)
 {
-	struct Library *ReqToolsBase;
 	char *password = NULL;
 
 	ReqToolsBase = OpenLibrary((STRPTR)"reqtools.library", 38);

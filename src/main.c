@@ -30,6 +30,7 @@
 #include <clib/debug_protos.h>
 #endif
 #include <stdint.h>
+#include <time.h>
 
 #include <smb2/smb2.h>
 #include <smb2/libsmb2.h>
@@ -99,7 +100,22 @@ BOOL cfg_reconnect_req = FALSE;
 BOOL cfg_handles_rcv = TRUE; // recover handles (experimental)
 char last_server[128];
 
+/* Reconnect budget. The gap matters as much as the count: a mounted volume is
+ * polled constantly, and would otherwise spend every try at once. */
+#define RECONNECT_MAX_TRIES 3
+#define RECONNECT_MIN_GAP   2  /* seconds between attempts */
+
+static int    reconnect_fails = 0;
+static time_t reconnect_last  = 0;
+
+/* Kept so a reconnect need not raise a requester. Heap, not a fixed buffer: a
+ * truncated copy would connect once and fail every reconnect after. */
+static char *last_password = NULL;
+
 static void smb2fs_destroy(void *initret);
+
+/* Seconds one request may go unanswered; armed per pdu, not per transfer. */
+#define SMB2FS_PDU_TIMEOUT 30
 
 static void *smb2fs_init(struct fuse_conn_info *fci)
 {
@@ -145,6 +161,10 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 		return NULL;
 	}
 
+	/* Before parsing the URL, so "timeout=" still overrides. Left at zero,
+	 * no pdu gets a deadline and wait_for_reply() cannot fail. */
+	smb2_set_timeout(fsd->smb2, SMB2FS_PDU_TIMEOUT);
+
 	url = smb2_parse_url(fsd->smb2, (char *)md->args[ARG_URL]);
 	if (url == NULL)
 	{
@@ -170,6 +190,19 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	if (md->args[ARG_DOMAIN])
 	{
 		domain = (const char *)md->args[ARG_DOMAIN];
+	}
+
+	if (password == NULL && last_password != NULL)
+	{
+		/* smb2_destroy_url() frees url->password: give it its own copy. */
+		password = strdup(last_password);
+		if (password == NULL)
+		{
+			/* Must not fall through to the requester below. */
+			smb2fs_destroy(fsd);
+			return NULL;
+		}
+		url->password = password;
 	}
 
 	if (password == NULL && !md->args[ARG_NOPASSWORDREQ])
@@ -208,6 +241,18 @@ static void *smb2fs_init(struct fuse_conn_info *fci)
 	}
 
 	fsd->connected = TRUE;
+
+	if (password != NULL)
+	{
+		char *copy = strdup(password);
+
+		/* Whole copy or keep the old one; never a partial. */
+		if (copy != NULL)
+		{
+			free(last_password);
+			last_password = copy;
+		}
+	}
 
 	if (url->path != NULL && url->path[0] != '\0')
 	{
@@ -357,11 +402,41 @@ static void smb2fs_destroy(void *initret)
     }
 } */
 
+/* One bounded attempt, from the fsd == NULL guard at the top of each
+ * operation: one try per operation, no loop, count reset on success. */
+static void *try_reconnect(void)
+{
+	time_t now = time(NULL);
+
+	if (reconnect_fails >= RECONNECT_MAX_TRIES)
+	{
+		return NULL;
+	}
+
+	if (reconnect_last != 0 && (now - reconnect_last) < RECONNECT_MIN_GAP)
+		return NULL;
+
+	reconnect_last = now;
+
+	if (smb2fs_init(NULL) != NULL)
+	{
+		reconnect_fails = 0;
+		return fsd;
+	}
+
+	reconnect_fails++;
+	return NULL;
+}
+
 static int handle_connection_fault()
 {
 	const char *psz_error = smb2_get_error(fsd->smb2);
 
+
 	request_error(psz_error);
+
+	/* Not smb2fs_destroy(): that disconnects gracefully first, which on a
+	 * dead socket costs a full timeout. Keep this in step with it. */
 	
 	smb2_destroy_context(fsd->smb2);
 	fsd->smb2 = NULL;
@@ -371,6 +446,14 @@ static int handle_connection_fault()
 		free(fsd->rootdir);
 		fsd->rootdir = NULL;
 	}
+
+	/* smb2fs_destroy() frees this; tearing down by hand did not. */
+	if (fsd->phr != NULL)
+	{
+		FreeRegistry(fsd->phr);
+		fsd->phr = NULL;
+	}
+
 	free(fsd);
 	fsd = NULL;
 
@@ -512,7 +595,7 @@ static int smb2fs_getattr(const char *path, struct fbx_stat *stbuf)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -560,7 +643,7 @@ static int smb2fs_fgetattr(const char *path, struct fbx_stat *stbuf,
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -601,7 +684,7 @@ static int smb2fs_mkdir(const char *path, mode_t mode)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -647,7 +730,7 @@ static int smb2fs_opendir(const char *path, struct fuse_file_info *fi)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -701,7 +784,7 @@ static int smb2fs_releasedir(const char *path, struct fuse_file_info *fi)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -734,7 +817,7 @@ static int smb2fs_readdir(const char *path, void *buffer, fuse_fill_dir_t filler
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -772,7 +855,7 @@ static int smb2fs_open(const char *path, struct fuse_file_info *fi)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -839,7 +922,7 @@ static int smb2fs_create(const char *path, mode_t mode, struct fuse_file_info *f
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -893,7 +976,7 @@ static int smb2fs_release(const char *path, struct fuse_file_info *fi)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -931,7 +1014,7 @@ static int smb2fs_read(const char *path, char *buffer, size_t size,
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 
 		if(cfg_handles_rcv)
@@ -1020,7 +1103,7 @@ static int smb2fs_write(const char *path, const char *buffer, size_t size,
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 
 		if(cfg_handles_rcv)
@@ -1105,7 +1188,7 @@ static int smb2fs_truncate(const char *path, fbx_off_t size)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -1151,7 +1234,7 @@ static int smb2fs_ftruncate(const char *path, fbx_off_t size, struct fuse_file_i
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 
 		if(cfg_handles_rcv)
@@ -1210,7 +1293,7 @@ static int smb2fs_utimens(const char *path, const struct timespec tv[2])
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -1248,7 +1331,7 @@ static int smb2fs_unlink(const char *path)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -1298,7 +1381,7 @@ static int smb2fs_rmdir(const char *path)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -1374,7 +1457,7 @@ static int smb2fs_readlink(const char *path, char *buffer, size_t size)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 
@@ -1417,7 +1500,7 @@ static int smb2fs_rename(const char *srcpath, const char *dstpath)
 			if(!(request_reconnect(last_server) && smb2fs_init(NULL)))
 				return -ENODEV;
 		}
-		else if(!smb2fs_init(NULL))
+		else if(!try_reconnect())
 			return -ENODEV;
 	}
 

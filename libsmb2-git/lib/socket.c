@@ -983,6 +983,30 @@ smb2_service(struct smb2_context *smb2, int revents)
         }
 }
 
+#if defined(__amigaos3__) || defined(__AMIGA__) || defined(__AROS__)
+/* The socket stays blocking here: set_nonblocking() takes the generic fcntl()
+ * branch, and libnix's fcntl() does not know bsdsocket sockets. A recv()
+ * landing mid-PDU would sleep for ever, so bound it. */
+#ifndef SO_RCVTIMEO
+#define SO_RCVTIMEO 0x1006
+#endif
+#ifndef SO_SNDTIMEO
+#define SO_SNDTIMEO 0x1005
+#endif
+#define SMB2_AMIGA_IO_TIMEOUT_SECS 5
+
+static void set_io_timeout(t_socket fd)
+{
+        struct timeval tv;
+
+        tv.tv_sec  = SMB2_AMIGA_IO_TIMEOUT_SECS;
+        tv.tv_usec = 0;
+
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const void *)&tv, sizeof tv);
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const void *)&tv, sizeof tv);
+}
+#endif
+
 static void
 set_nonblocking(t_socket fd)
 {
@@ -1083,6 +1107,9 @@ connect_async_ai(struct smb2_context *smb2, const struct addrinfo *ai, int *fd_o
 #endif
 
         set_nonblocking(fd);
+#if defined(__amigaos3__) || defined(__AMIGA__) || defined(__AROS__)
+        set_io_timeout(fd);
+#endif
         set_tcp_sockopt(fd, TCP_NODELAY, 1);
 #if 0 == CONFIGURE_OPTION_TCP_LINGER
         setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void*)&yes, sizeof yes);
@@ -1302,6 +1329,9 @@ smb2_bind_and_listen(const uint16_t port, const int max_connections, int *out_fd
         }
 
         set_nonblocking(fd);
+#if defined(__amigaos3__) || defined(__AMIGA__) || defined(__AROS__)
+        set_io_timeout(fd);
+#endif
         set_tcp_sockopt(fd, TCP_NODELAY, 1);
 
         serv_addr.sin_port = htons(port);
